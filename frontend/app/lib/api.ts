@@ -1,0 +1,308 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('access_token');
+}
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const token = getToken();
+
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem('access_token');
+    window.location.href = '/login';
+    throw new Error('Unauthorized');
+  }
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(error.message ?? 'Request failed');
+  }
+
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  // Auth
+  login: (email: string, password: string) =>
+    request<{ access_token: string; user: { id: string; email: string } }>(
+      '/auth/login',
+      { method: 'POST', body: JSON.stringify({ email, password }) },
+    ),
+
+  register: (email: string, password: string, role?: string) =>
+    request<{ access_token: string; user: { id: string; email: string } }>(
+      '/auth/register',
+      { method: 'POST', body: JSON.stringify({ email, password, role }) },
+    ),
+
+  // Ingredients
+  getIngredients: (category?: string) =>
+    request<Ingredient[]>(`/ingredients${category ? `?category=${category}` : ''}`),
+
+  getIngredient: (id: string) => request<Ingredient>(`/ingredients/${id}`),
+
+  getIngredientCategories: () =>
+    request<string[]>('/ingredients/categories'),
+
+  createIngredient: (data: CreateIngredientData) =>
+    request<Ingredient>('/ingredients', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateIngredient: (id: string, data: Partial<CreateIngredientData>) =>
+    request<Ingredient>(`/ingredients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteIngredient: (id: string) =>
+    request<void>(`/ingredients/${id}`, { method: 'DELETE' }),
+
+  // Sub-recipes
+  getSubRecipes: (stationTag?: string) =>
+    request<SubRecipe[]>(`/sub-recipes${stationTag ? `?station_tag=${stationTag}` : ''}`),
+
+  getSubRecipe: (id: string) => request<SubRecipe>(`/sub-recipes/${id}`),
+
+  getStationTags: () => request<string[]>('/sub-recipes/station-tags'),
+
+  createSubRecipe: (data: CreateSubRecipeData) =>
+    request<SubRecipe>('/sub-recipes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSubRecipe: (id: string, data: Partial<CreateSubRecipeData>) =>
+    request<SubRecipe>(`/sub-recipes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteSubRecipe: (id: string) =>
+    request<void>(`/sub-recipes/${id}`, { method: 'DELETE' }),
+
+  // Meals
+  getMeals: () => request<MealRecipe[]>('/meals'),
+
+  getMeal: (id: string) => request<MealRecipe>(`/meals/${id}`),
+
+  getMealPricing: () => request<MealPricing[]>('/meals/pricing'),
+
+  createMeal: (data: CreateMealData) =>
+    request<MealRecipe>('/meals', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateMeal: (id: string, data: Partial<CreateMealData>) =>
+    request<MealRecipe>(`/meals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteMeal: (id: string) =>
+    request<void>(`/meals/${id}`, { method: 'DELETE' }),
+
+  // Orders
+  getOrders: (startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.set('start_date', startDate);
+    if (endDate) params.set('end_date', endDate);
+    const qs = params.toString();
+    return request<Order[]>(`/orders${qs ? `?${qs}` : ''}`);
+  },
+
+  createOrder: (data: CreateOrderData) =>
+    request<Order>('/orders', { method: 'POST', body: JSON.stringify(data) }),
+
+  deleteOrder: (id: string) =>
+    request<void>(`/orders/${id}`, { method: 'DELETE' }),
+
+  // Production reports
+  getProductionReport: (startDate: string, endDate: string) =>
+    request<ProductionReport[]>(
+      `/production/report?start_date=${startDate}&end_date=${endDate}`,
+    ),
+
+  getMealsReport: (startDate: string, endDate: string) =>
+    request<MealRequirement[]>(
+      `/production/meals-report?start_date=${startDate}&end_date=${endDate}`,
+    ),
+
+  getSubRecipesReport: (startDate: string, endDate: string) =>
+    request<SubRecipeRequirement[]>(
+      `/production/sub-recipes-report?start_date=${startDate}&end_date=${endDate}`,
+    ),
+
+  getShoppingList: (startDate: string, endDate: string) =>
+    request<IngredientRequirement[]>(
+      `/production/shopping-list?start_date=${startDate}&end_date=${endDate}`,
+    ),
+
+  recalculateCosts: () =>
+    request<{ subRecipes: number; meals: number }>('/production/recalculate-costs', {
+      method: 'POST',
+    }),
+};
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+export interface Ingredient {
+  id: string;
+  internal_name: string;
+  display_name: string;
+  sku: string;
+  category: string;
+  location: string | null;
+  supplier_name: string | null;
+  trim_percentage: number;
+  base_weight: number;
+  cost_per_unit: number;
+  allergen_tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateIngredientData = Omit<Ingredient, 'id' | 'created_at' | 'updated_at'>;
+
+export interface SubRecipeComponent {
+  id: string;
+  ingredient_id: string | null;
+  child_sub_recipe_id: string | null;
+  quantity: number;
+  unit: string;
+  ingredient?: Pick<Ingredient, 'id' | 'internal_name' | 'sku'> | null;
+  child_sub_recipe?: Pick<SubRecipe, 'id' | 'name' | 'sub_recipe_code'> | null;
+}
+
+export interface SubRecipe {
+  id: string;
+  name: string;
+  sub_recipe_code: string;
+  instructions: string | null;
+  production_day: string | null;
+  station_tag: string | null;
+  base_yield_weight: number;
+  computed_cost: number;
+  created_at: string;
+  updated_at: string;
+  components: SubRecipeComponent[];
+}
+
+export interface CreateSubRecipeData {
+  name: string;
+  sub_recipe_code: string;
+  instructions?: string;
+  production_day?: string;
+  station_tag?: string;
+  base_yield_weight: number;
+  components?: { ingredient_id?: string; child_sub_recipe_id?: string; quantity: number; unit: string }[];
+}
+
+export interface MealComponent {
+  id: string;
+  ingredient_id: string | null;
+  sub_recipe_id: string | null;
+  quantity: number;
+  unit: string;
+  ingredient?: Pick<Ingredient, 'id' | 'internal_name' | 'sku'> | null;
+  sub_recipe?: Pick<SubRecipe, 'id' | 'name' | 'sub_recipe_code'> | null;
+}
+
+export interface MealRecipe {
+  id: string;
+  name: string;
+  display_name: string;
+  final_yield_weight: number;
+  pricing_override: number | null;
+  computed_cost: number;
+  created_at: string;
+  updated_at: string;
+  components: MealComponent[];
+}
+
+export interface MealPricing {
+  id: string;
+  name: string;
+  display_name: string;
+  computed_cost: number;
+  pricing_override: number | null;
+  final_yield_weight: number;
+}
+
+export interface CreateMealData {
+  name: string;
+  display_name: string;
+  final_yield_weight: number;
+  pricing_override?: number;
+  components?: { ingredient_id?: string; sub_recipe_id?: string; quantity: number; unit: string }[];
+}
+
+export interface Order {
+  id: string;
+  external_order_id: string;
+  meal_id: string;
+  quantity: number;
+  production_date: string;
+  source_platform: string;
+  created_at: string;
+  meal?: Pick<MealRecipe, 'id' | 'name' | 'display_name'>;
+}
+
+export interface CreateOrderData {
+  external_order_id: string;
+  meal_id: string;
+  quantity: number;
+  production_date: string;
+  source_platform?: string;
+}
+
+export interface MealRequirement {
+  meal_id: string;
+  meal_name: string;
+  display_name: string;
+  total_quantity: number;
+}
+
+export interface SubRecipeRequirement {
+  id: string;
+  name: string;
+  sub_recipe_code: string;
+  station_tag: string | null;
+  production_day: string | null;
+  total_quantity: number;
+  unit: string;
+}
+
+export interface IngredientRequirement {
+  id: string;
+  internal_name: string;
+  display_name: string;
+  sku: string;
+  category: string;
+  supplier_name: string | null;
+  location: string | null;
+  total_quantity: number;
+  unit: string;
+  allergen_tags: string[];
+}
+
+export interface ProductionReport {
+  production_date: string;
+  meals: MealRequirement[];
+  sub_recipes: SubRecipeRequirement[];
+  ingredients: IngredientRequirement[];
+  grouped_by_station: Record<string, SubRecipeRequirement[]>;
+  grouped_by_day: Record<string, SubRecipeRequirement[]>;
+}

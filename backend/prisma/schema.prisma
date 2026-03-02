@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  role          String   @default("staff")
+  created_at    DateTime @default(now())
+}
+
+model Ingredient {
+  id             String   @id @default(uuid())
+  internal_name  String
+  display_name   String
+  sku            String   @unique
+  category       String
+  location       String?
+  supplier_name  String?
+  trim_percentage Float   @default(0)
+  base_weight    Float
+  cost_per_unit  Float
+  allergen_tags  String[]
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  sub_recipe_components SubRecipeComponent[]
+  meal_components       MealComponent[]
+
+  @@index([sku])
+  @@index([category])
+}
+
+model SubRecipe {
+  id               String   @id @default(uuid())
+  name             String
+  sub_recipe_code  String   @unique
+  instructions     String?
+  production_day   String?
+  station_tag      String?
+  base_yield_weight Float
+  computed_cost    Float    @default(0)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  components       SubRecipeComponent[] @relation("SubRecipeComponents")
+  parent_components SubRecipeComponent[] @relation("ChildSubRecipe")
+  meal_components  MealComponent[]
+
+  @@index([sub_recipe_code])
+  @@index([station_tag])
+}
+
+model SubRecipeComponent {
+  id                  String     @id @default(uuid())
+  sub_recipe_id       String
+  ingredient_id       String?
+  child_sub_recipe_id String?
+  quantity            Float
+  unit                String
+
+  sub_recipe          SubRecipe  @relation("SubRecipeComponents", fields: [sub_recipe_id], references: [id], onDelete: Cascade)
+  ingredient          Ingredient? @relation(fields: [ingredient_id], references: [id])
+  child_sub_recipe    SubRecipe?  @relation("ChildSubRecipe", fields: [child_sub_recipe_id], references: [id])
+}
+
+model MealRecipe {
+  id                String   @id @default(uuid())
+  name              String
+  display_name      String
+  final_yield_weight Float
+  pricing_override  Float?
+  computed_cost     Float    @default(0)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  components        MealComponent[]
+  orders            Order[]
+
+  @@index([name])
+}
+
+model MealComponent {
+  id             String      @id @default(uuid())
+  meal_id        String
+  ingredient_id  String?
+  sub_recipe_id  String?
+  quantity       Float
+  unit           String
+
+  meal           MealRecipe  @relation(fields: [meal_id], references: [id], onDelete: Cascade)
+  ingredient     Ingredient? @relation(fields: [ingredient_id], references: [id])
+  sub_recipe     SubRecipe?  @relation(fields: [sub_recipe_id], references: [id])
+}
+
+model Order {
+  id                String   @id @default(uuid())
+  external_order_id String   @unique
+  meal_id           String
+  quantity          Int
+  production_date   DateTime
+  source_platform   String   @default("shopify")
+  created_at        DateTime @default(now())
+
+  meal              MealRecipe @relation(fields: [meal_id], references: [id])
+
+  @@index([production_date])
+  @@index([meal_id])
+  @@index([external_order_id])
+}
