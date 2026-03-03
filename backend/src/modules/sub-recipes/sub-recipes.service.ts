@@ -1,166 +1,104 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CostEngineService } from '../../services/cost-engine.service';
 import { CreateSubRecipeDto, UpdateSubRecipeDto } from './dto/sub-recipe.dto';
 
 @Injectable()
 export class SubRecipesService {
-  constructor(
-    private prisma: PrismaService,
-    private costEngine: CostEngineService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
-  async findAll(stationTag?: string) {
-    return this.prisma.subRecipe.findMany({
-      where: stationTag ? { station_tag: stationTag } : undefined,
+  private includeIngredients = {
+    ingredients: {
       include: {
-        components: {
-          include: {
-            ingredient: { select: { id: true, internal_name: true, sku: true } },
-            child_sub_recipe: { select: { id: true, name: true, sub_recipe_code: true } },
-          },
-        },
+        ingredient: { select: { id: true, name: true } },
       },
-      orderBy: { name: 'asc' },
-    });
+    },
+  };
+
+  async findAll(params: {
+    search?: string;
+    station?: string;
+    day?: string;
+    priority?: string;
+    skip?: number;
+    take?: number;
+  }) {
+    const { search, station, day, priority, skip = 0, take = 50 } = params;
+    const where: any = {};
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+    if (station) where.station = { contains: station, mode: 'insensitive' };
+    if (day) where.day = day;
+    if (priority) where.priority = Number(priority);
+
+    const [data, total] = await Promise.all([
+      this.prisma.subRecipe.findMany({
+        where,
+        include: this.includeIngredients,
+        orderBy: [{ station: 'asc' }, { priority: 'asc' }, { name: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.subRecipe.count({ where }),
+    ]);
+    return { data, total };
   }
 
   async findOne(id: string) {
-    const subRecipe = await this.prisma.subRecipe.findUnique({
+    const sr = await this.prisma.subRecipe.findUnique({
       where: { id },
-      include: {
-        components: {
-          include: {
-            ingredient: true,
-            child_sub_recipe: {
-              include: {
-                components: {
-                  include: { ingredient: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: this.includeIngredients,
     });
-    if (!subRecipe) throw new NotFoundException('Sub-recipe not found');
-    return subRecipe;
+    if (!sr) throw new NotFoundException('Sub-recipe not found');
+    return sr;
   }
 
   async create(dto: CreateSubRecipeDto) {
-    const existing = await this.prisma.subRecipe.findUnique({
-      where: { sub_recipe_code: dto.sub_recipe_code },
+    const { ingredients, ...rest } = dto;
+    return this.prisma.subRecipe.create({
+      data: {
+        ...rest,
+        ingredients: ingredients
+          ? {
+              create: ingredients.map((i) => ({
+                ingredientId: i.ingredientId,
+                weight: i.weight,
+                unit: i.unit,
+                trimPct: i.trimPct,
+              })),
+            }
+          : undefined,
+      },
+      include: this.includeIngredients,
     });
-    if (existing) throw new ConflictException('Sub-recipe code already exists');
-
-    this.validateComponents(dto.components ?? []);
-
-    const { components, ...subRecipeData } = dto;
-
-    const subRecipe = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.subRecipe.create({ data: subRecipeData });
-
-      if (components?.length) {
-        await tx.subRecipeComponent.createMany({
-          data: components.map((c) => ({
-            sub_recipe_id: created.id,
-            ingredient_id: c.ingredient_id ?? null,
-            child_sub_recipe_id: c.child_sub_recipe_id ?? null,
-            quantity: c.quantity,
-            unit: c.unit,
-          })),
-        });
-      }
-
-      return created;
-    });
-
-    const cost = await this.costEngine.calculateSubRecipeCost(subRecipe.id);
-    await this.prisma.subRecipe.update({
-      where: { id: subRecipe.id },
-      data: { computed_cost: cost },
-    });
-
-    return this.findOne(subRecipe.id);
   }
 
   async update(id: string, dto: UpdateSubRecipeDto) {
     await this.findOne(id);
-
-    if (dto.sub_recipe_code) {
-      const existing = await this.prisma.subRecipe.findFirst({
-        where: { sub_recipe_code: dto.sub_recipe_code, NOT: { id } },
-      });
-      if (existing) throw new ConflictException('Sub-recipe code already in use');
-    }
-
-    if (dto.components !== undefined) {
-      this.validateComponents(dto.components ?? []);
-    }
-
-    const { components, ...subRecipeData } = dto;
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.subRecipe.update({ where: { id }, data: subRecipeData });
-
-      if (components !== undefined) {
-        await tx.subRecipeComponent.deleteMany({ where: { sub_recipe_id: id } });
-        if (components.length) {
-          await tx.subRecipeComponent.createMany({
-            data: components.map((c) => ({
-              sub_recipe_id: id,
-              ingredient_id: c.ingredient_id ?? null,
-              child_sub_recipe_id: c.child_sub_recipe_id ?? null,
-              quantity: c.quantity,
-              unit: c.unit,
-            })),
-          });
-        }
-      }
-    });
-
-    const cost = await this.costEngine.calculateSubRecipeCost(id);
-    await this.prisma.subRecipe.update({
+    const { ingredients, id: _id, ...rest } = dto;
+    return this.prisma.subRecipe.update({
       where: { id },
-      data: { computed_cost: cost },
+      data: {
+        ...rest,
+        ...(ingredients
+          ? {
+              ingredients: {
+                deleteMany: {},
+                create: ingredients.map((i) => ({
+                  ingredientId: i.ingredientId,
+                  weight: i.weight,
+                  unit: i.unit,
+                  trimPct: i.trimPct,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: this.includeIngredients,
     });
-
-    return this.findOne(id);
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.subRecipe.delete({ where: { id } });
-  }
-
-  async getStationTags() {
-    const result = await this.prisma.subRecipe.groupBy({
-      by: ['station_tag'],
-      where: { station_tag: { not: null } },
-      orderBy: { station_tag: 'asc' },
-    });
-    return result.map((r) => r.station_tag).filter(Boolean);
-  }
-
-  private validateComponents(
-    components: { ingredient_id?: string; child_sub_recipe_id?: string }[],
-  ) {
-    for (const c of components) {
-      if (!c.ingredient_id && !c.child_sub_recipe_id) {
-        throw new BadRequestException(
-          'Each component must have either ingredient_id or child_sub_recipe_id',
-        );
-      }
-      if (c.ingredient_id && c.child_sub_recipe_id) {
-        throw new BadRequestException(
-          'Component cannot have both ingredient_id and child_sub_recipe_id',
-        );
-      }
-    }
+    await this.prisma.subRecipe.delete({ where: { id } });
+    return { success: true };
   }
 }

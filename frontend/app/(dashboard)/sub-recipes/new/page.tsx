@@ -2,70 +2,79 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, Ingredient, SubRecipe } from '../../../lib/api';
+import { api, Ingredient } from '../../../lib/api';
+import { v4 as uuidv4 } from 'uuid';
 
-interface ComponentRow {
-  type: 'ingredient' | 'sub_recipe';
-  ref_id: string;
-  quantity: number;
+interface IngredientRow {
+  ingredientId: string;
+  weight: number | '';
   unit: string;
+  trimPct: number | '';
 }
 
 export default function NewSubRecipePage() {
   const router = useRouter();
+  const [id, setId] = useState('');
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [productionDay, setProductionDay] = useState('');
-  const [stationTag, setStationTag] = useState('');
-  const [baseYield, setBaseYield] = useState<number>(0);
-  const [components, setComponents] = useState<ComponentRow[]>([]);
+  const [station, setStation] = useState('');
+  const [day, setDay] = useState('');
+  const [priority, setPriority] = useState<number | ''>('');
+  const [prepInstructions, setPrepInstructions] = useState('');
+  const [backendUrl, setBackendUrl] = useState('');
+  const [baseWeight, setBaseWeight] = useState<number | ''>('');
+  const [baseUnit, setBaseUnit] = useState('');
+  const [rows, setRows] = useState<IngredientRow[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [subRecipes, setSubRecipes] = useState<SubRecipe[]>([]);
+  const [ingSearch, setIngSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    Promise.all([api.getIngredients(), api.getSubRecipes()]).then(([i, s]) => {
-      setIngredients(i);
-      setSubRecipes(s);
-    });
+    api.getIngredients({ take: 2000 }).then((res) => setIngredients(res.data));
   }, []);
 
-  function addComponent() {
-    setComponents((c) => [
-      ...c,
-      { type: 'ingredient', ref_id: '', quantity: 0, unit: 'g' },
-    ]);
+  const filteredIngredients = ingredients.filter((i) =>
+    !ingSearch || i.name.toLowerCase().includes(ingSearch.toLowerCase()),
+  );
+
+  function addRow() {
+    setRows((r) => [...r, { ingredientId: '', weight: '', unit: 'gr', trimPct: '' }]);
   }
 
-  function updateComponent(idx: number, field: keyof ComponentRow, value: string | number) {
-    setComponents((cs) =>
-      cs.map((c, i) => (i === idx ? { ...c, [field]: value } : c)),
-    );
+  function updateRow(idx: number, field: keyof IngredientRow, value: string | number) {
+    setRows((rs) => rs.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
   }
 
-  function removeComponent(idx: number) {
-    setComponents((cs) => cs.filter((_, i) => i !== idx));
+  function removeRow(idx: number) {
+    setRows((rs) => rs.filter((_, i) => i !== idx));
   }
 
   async function handleSave() {
+    if (!id.trim() || !name.trim()) {
+      setError('ID and Name are required');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
       await api.createSubRecipe({
-        name,
-        sub_recipe_code: code,
-        instructions: instructions || undefined,
-        production_day: productionDay || undefined,
-        station_tag: stationTag || undefined,
-        base_yield_weight: Number(baseYield),
-        components: components.map((c) => ({
-          ingredient_id: c.type === 'ingredient' ? c.ref_id : undefined,
-          child_sub_recipe_id: c.type === 'sub_recipe' ? c.ref_id : undefined,
-          quantity: Number(c.quantity),
-          unit: c.unit,
-        })),
+        id: id.trim(),
+        name: name.trim(),
+        station: station || undefined,
+        day: day || undefined,
+        priority: priority !== '' ? Number(priority) : undefined,
+        prepInstructions: prepInstructions || undefined,
+        backendUrl: backendUrl || undefined,
+        baseWeight: baseWeight !== '' ? Number(baseWeight) : undefined,
+        baseUnit: baseUnit || undefined,
+        ingredients: rows
+          .filter((r) => r.ingredientId)
+          .map((r) => ({
+            ingredientId: r.ingredientId,
+            weight: r.weight !== '' ? Number(r.weight) : undefined,
+            unit: r.unit || undefined,
+            trimPct: r.trimPct !== '' ? Number(r.trimPct) : undefined,
+          })),
       });
       router.push('/sub-recipes');
     } catch (e: any) {
@@ -75,182 +84,147 @@ export default function NewSubRecipePage() {
     }
   }
 
+  const STATIONS = ['Veg', 'Sauce', 'Oven', 'Pro', 'Packing', 'Breakfast', 'Batch'];
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-8 max-w-4xl">
       <div className="flex items-center gap-3 mb-8">
-        <button
-          onClick={() => router.push('/sub-recipes')}
-          className="text-gray-400 hover:text-gray-600 text-lg"
-        >
-          ←
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900">New Sub-Recipe</h1>
+        <button onClick={() => router.push('/sub-recipes')} className="text-[#7A9080] hover:text-[#1B4332] text-lg">←</button>
+        <h1 className="font-display text-2xl font-bold text-[#1A1A18]">New Sub-Recipe</h1>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-[#FDFAF5] border border-[#E0EAE2] rounded-[14px] p-6 space-y-5">
+        {/* ID + Name */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Tomato Sauce Base"
-            />
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">
+              Sub-Recipe ID *
+            </label>
+            <div className="flex gap-2">
+              <input type="text" value={id} onChange={(e) => setId(e.target.value)}
+                className="flex-1 px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+                placeholder="e.g. SR-001" />
+              <button onClick={() => setId(uuidv4().slice(0, 8).toUpperCase())}
+                className="px-3 py-2 text-xs border border-[#E0EAE2] rounded-lg text-[#7A9080] hover:bg-[#F5F0E8]">
+                Generate
+              </button>
+            </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 font-mono"
-              placeholder="SR-001"
-            />
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Name *</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+              placeholder="e.g. Tomato Sauce Base" />
           </div>
         </div>
 
+        {/* Station / Day / Priority */}
         <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Base Yield (g)</label>
-            <input
-              type="number"
-              min="0"
-              value={baseYield}
-              onChange={(e) => setBaseYield(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Station</label>
+            <select value={station} onChange={(e) => setStation(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]">
+              <option value="">— None —</option>
+              {STATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Station Tag</label>
-            <input
-              type="text"
-              value={stationTag}
-              onChange={(e) => setStationTag(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Hot Station"
-            />
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Production Day</label>
+            <select value={day} onChange={(e) => setDay(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]">
+              <option value="">— None —</option>
+              {DAYS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Production Day</label>
-            <input
-              type="text"
-              value={productionDay}
-              onChange={(e) => setProductionDay(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="Monday"
-            />
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Priority</label>
+            <input type="number" min="1" value={priority} onChange={(e) => setPriority(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+              placeholder="1" />
           </div>
         </div>
 
+        {/* Base weight */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Base Batch Weight</label>
+            <input type="number" min="0" value={baseWeight} onChange={(e) => setBaseWeight(e.target.value ? Number(e.target.value) : '')}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+              placeholder="e.g. 1000" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Base Unit</label>
+            <input type="text" value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)}
+              className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+              placeholder="gr, kg, L" />
+          </div>
+        </div>
+
+        {/* Prep instructions */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
-          <textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
-            placeholder="Step-by-step instructions..."
-          />
+          <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Prep Instructions</label>
+          <textarea value={prepInstructions} onChange={(e) => setPrepInstructions(e.target.value)} rows={3}
+            className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788] resize-none"
+            placeholder="Step-by-step cooking instructions..." />
         </div>
 
-        {/* Components */}
+        {/* Backend URL */}
+        <div>
+          <label className="block text-xs font-medium text-[#7A9080] uppercase tracking-wider mb-1">Backend URL</label>
+          <input type="text" value={backendUrl} onChange={(e) => setBackendUrl(e.target.value)}
+            className="w-full px-3 py-2 border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+            placeholder="https://..." />
+        </div>
+
+        {/* Ingredients */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <label className="text-sm font-medium text-gray-700">Components</label>
-            <button
-              onClick={addComponent}
-              className="text-xs text-brand-600 hover:underline"
-            >
-              + Add Component
-            </button>
+            <label className="text-xs font-medium text-[#7A9080] uppercase tracking-wider">Ingredients</label>
+            <button onClick={addRow} className="text-xs text-[#52B788] hover:underline font-medium">+ Add Ingredient</button>
           </div>
-
-          {components.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center border border-dashed border-gray-200 rounded-lg">
-              No components yet. Click "+ Add Component" to start.
+          {rows.length === 0 ? (
+            <p className="text-sm text-[#7A9080] py-4 text-center border border-dashed border-[#E0EAE2] rounded-lg">
+              No ingredients yet.
             </p>
           ) : (
             <div className="space-y-2">
-              {components.map((comp, idx) => (
-                <div key={idx} className="grid grid-cols-[120px_1fr_80px_80px_32px] gap-2 items-center">
-                  <select
-                    value={comp.type}
-                    onChange={(e) =>
-                      updateComponent(idx, 'type', e.target.value as 'ingredient' | 'sub_recipe')
-                    }
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-                  >
-                    <option value="ingredient">Ingredient</option>
-                    <option value="sub_recipe">Sub-Recipe</option>
-                  </select>
-
-                  <select
-                    value={comp.ref_id}
-                    onChange={(e) => updateComponent(idx, 'ref_id', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-                  >
+              <div className="grid grid-cols-[1fr_80px_70px_70px_32px] gap-2 px-1">
+                {['Ingredient', 'Weight', 'Unit', 'Trim %', ''].map((h) => (
+                  <span key={h} className="text-[10px] text-[#7A9080] uppercase tracking-wider font-medium">{h}</span>
+                ))}
+              </div>
+              {rows.map((row, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_80px_70px_70px_32px] gap-2 items-center">
+                  <select value={row.ingredientId} onChange={(e) => updateRow(idx, 'ingredientId', e.target.value)}
+                    className="px-2 py-1.5 border border-[#E0EAE2] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#52B788] bg-white">
                     <option value="">Select...</option>
-                    {comp.type === 'ingredient'
-                      ? ingredients.map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.internal_name} ({i.sku})
-                          </option>
-                        ))
-                      : subRecipes.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.sub_recipe_code})
-                          </option>
-                        ))}
+                    {ingredients.slice(0, 500).map((i) => (
+                      <option key={i.id} value={i.id}>{i.name}</option>
+                    ))}
                   </select>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.001"
-                    value={comp.quantity}
-                    onChange={(e) => updateComponent(idx, 'quantity', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-                    placeholder="Qty"
-                  />
-
-                  <input
-                    type="text"
-                    value={comp.unit}
-                    onChange={(e) => updateComponent(idx, 'unit', e.target.value)}
-                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-brand-500"
-                    placeholder="g"
-                  />
-
-                  <button
-                    onClick={() => removeComponent(idx)}
-                    className="text-red-400 hover:text-red-600 text-lg leading-none"
-                  >
-                    ×
-                  </button>
+                  <input type="number" min="0" step="0.001" value={row.weight}
+                    onChange={(e) => updateRow(idx, 'weight', e.target.value ? Number(e.target.value) : '')}
+                    className="px-2 py-1.5 border border-[#E0EAE2] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#52B788]" />
+                  <input type="text" value={row.unit} onChange={(e) => updateRow(idx, 'unit', e.target.value)}
+                    className="px-2 py-1.5 border border-[#E0EAE2] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#52B788]" />
+                  <input type="number" min="0" max="100" step="0.1" value={row.trimPct}
+                    onChange={(e) => updateRow(idx, 'trimPct', e.target.value ? Number(e.target.value) : '')}
+                    className="px-2 py-1.5 border border-[#E0EAE2] rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#52B788]" />
+                  <button onClick={() => removeRow(idx)} className="text-[#D64E2A] hover:opacity-70 text-lg leading-none">×</button>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
 
         <div className="flex gap-3 justify-end pt-2">
-          <button
-            onClick={() => router.push('/sub-recipes')}
-            className="px-4 py-2 border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 disabled:opacity-50"
-          >
+          <button onClick={() => router.push('/sub-recipes')}
+            className="px-4 py-2 border border-[#E0EAE2] text-[#7A9080] text-sm rounded-lg hover:bg-[#F5F0E8]">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="px-4 py-2 bg-[#1B4332] text-white text-sm font-medium rounded-lg hover:bg-[#2D6A4F] disabled:opacity-50">
             {saving ? 'Saving...' : 'Create Sub-Recipe'}
           </button>
         </div>

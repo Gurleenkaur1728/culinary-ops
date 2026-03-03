@@ -1,35 +1,35 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  ParseUUIDPipe,
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { MealsService } from './meals.service';
 import { CreateMealDto, UpdateMealDto } from './dto/meal.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
 @Controller('meals')
 export class MealsController {
-  constructor(private readonly service: MealsService) {}
+  constructor(private service: MealsService) {}
 
   @Get()
-  findAll() {
-    return this.service.findAll();
+  findAll(
+    @Query('search') search?: string,
+    @Query('category') category?: string,
+    @Query('skip') skip?: string,
+    @Query('take') take?: string,
+  ) {
+    return this.service.findAll({
+      search,
+      category,
+      skip: Number(skip) || 0,
+      take: Number(take) || 200,
+    });
   }
 
-  @Get('pricing')
-  getPricing() {
-    return this.service.getPricing();
+  @Get('categories')
+  getCategories() {
+    return this.service.getCategories();
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  findOne(@Param('id') id: string) {
     return this.service.findOne(id);
   }
 
@@ -38,16 +38,13 @@ export class MealsController {
     return this.service.create(dto);
   }
 
-  @Put(':id')
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateMealDto,
-  ) {
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateMealDto) {
     return this.service.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id') id: string) {
     return this.service.remove(id);
   }
 }

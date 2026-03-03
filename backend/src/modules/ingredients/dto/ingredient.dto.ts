@@ -1,54 +1,12 @@
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsArray,
-  Min,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateIngredientDto {
   @IsString()
-  internal_name: string;
+  id: string;
 
   @IsString()
-  display_name: string;
-
-  @IsString()
-  sku: string;
-
-  @IsString()
-  category: string;
-
-  @IsOptional()
-  @IsString()
-  location?: string;
-
-  @IsOptional()
-  @IsString()
-  supplier_name?: string;
-
-  @IsNumber()
-  @Min(0)
-  trim_percentage: number;
-
-  @IsNumber()
-  @Min(0)
-  base_weight: number;
-
-  @IsNumber()
-  @Min(0)
-  cost_per_unit: number;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  allergen_tags?: string[];
+  name: string;
 }
 
-export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {
-  sku?: string;
-  cost_per_unit?: number;
-  trim_percentage?: number;
-}
+export class UpdateIngredientDto extends PartialType(CreateIngredientDto) {}

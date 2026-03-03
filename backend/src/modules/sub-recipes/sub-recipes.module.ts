@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { SubRecipesService } from './sub-recipes.service';
 import { SubRecipesController } from './sub-recipes.controller';
-import { CostEngineService } from '../../services/cost-engine.service';
+import { SubRecipesService } from './sub-recipes.service';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [SubRecipesController],
-  providers: [SubRecipesService, CostEngineService],
+  providers: [SubRecipesService],
   exports: [SubRecipesService],
 })
 export class SubRecipesModule {}

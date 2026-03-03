@@ -1,112 +1,121 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { api, MealRecipe } from '../../lib/api';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { api, Meal } from '../../lib/api';
+
+function CategoryBadge({ category }: { category: string | null }) {
+  if (!category) return null;
+  const c = category.toLowerCase();
+  const cls =
+    c === 'meat'      ? 'bg-orange-50 text-orange-700 border border-orange-200' :
+    c === 'veg'       ? 'bg-green-50 text-green-700 border border-green-200' :
+    c.includes('breakie') ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+    c.includes('granola') ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+    c.includes('propack') ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+    c.includes('cookies') ? 'bg-pink-50 text-pink-700 border border-pink-200' :
+    'bg-gray-50 text-gray-700 border border-gray-200';
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {category}
+    </span>
+  );
+}
 
 export default function MealsPage() {
-  const [meals, setMeals] = useState<MealRecipe[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [data, setData] = useState<Meal[]>([]);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  async function load() {
+  useEffect(() => {
+    api.getMealCategories().then(setCategories).catch(() => {});
+  }, []);
+
+  const load = useCallback(async () => {
     setLoading(true);
     try {
-      setMeals(await api.getMeals());
+      const res = await api.getMeals({ search, category, take: 200 });
+      setData(res.data);
+      setTotal(res.total);
+    } catch (e: any) {
+      console.error(e);
     } finally {
       setLoading(false);
     }
-  }
+  }, [search, category]);
 
-  useEffect(() => { load(); }, []);
-
-  async function handleDelete(id: string) {
-    if (!confirm('Delete this meal recipe?')) return;
-    try {
-      await api.deleteMeal(id);
-      load();
-    } catch (e: any) {
-      alert(e.message);
-    }
-  }
-
-  const filtered = meals.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.display_name.toLowerCase().includes(search.toLowerCase()),
-  );
+  useEffect(() => {
+    const t = setTimeout(load, 300);
+    return () => clearTimeout(t);
+  }, [load]);
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Meal Recipes</h1>
-        <Link
-          href="/meals/new"
-          className="px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors"
-        >
-          + New Meal Recipe
-        </Link>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-[#1A1A18]">Meals</h1>
+          <p className="text-[#7A9080] text-sm mt-0.5">{total} meals</p>
+        </div>
       </div>
 
-      <div className="mb-6">
+      {/* Filters */}
+      <div className="bg-[#FDFAF5] border border-[#E0EAE2] rounded-[14px] p-4 mb-4 flex gap-3 flex-wrap">
         <input
           type="text"
           placeholder="Search meals..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="flex-1 min-w-[200px] px-3 py-2 bg-white border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
         />
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="px-3 py-2 bg-white border border-[#E0EAE2] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#52B788]"
+        >
+          <option value="">All Categories</option>
+          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Table */}
+      <div className="bg-[#FDFAF5] border border-[#E0EAE2] rounded-[14px] overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              {['Name', 'Display Name', 'Yield (g)', 'Computed Cost', 'Sell Price', 'Margin', 'Components', ''].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-              ))}
+          <thead>
+            <tr className="bg-[#1B4332] text-[#B7E4C7]">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">ID</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Category</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Price</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">Sub-Recipes</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[#E0EAE2]">
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No meals found</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-[#7A9080]">Loading...</td></tr>
+            ) : data.length === 0 ? (
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-[#7A9080]">No meals found</td></tr>
             ) : (
-              filtered.map((meal) => {
-                const margin = meal.pricing_override
-                  ? (((meal.pricing_override - meal.computed_cost) / meal.pricing_override) * 100).toFixed(1)
-                  : null;
-                return (
-                  <tr key={meal.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{meal.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{meal.display_name}</td>
-                    <td className="px-4 py-3 text-gray-600">{meal.final_yield_weight}g</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">${meal.computed_cost.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {meal.pricing_override ? `$${meal.pricing_override.toFixed(2)}` : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      {margin ? (
-                        <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                          Number(margin) > 50 ? 'bg-green-50 text-green-700' :
-                          Number(margin) > 20 ? 'bg-yellow-50 text-yellow-700' :
-                          'bg-red-50 text-red-700'
-                        }`}>
-                          {margin}%
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{meal.components.length}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Link href={`/meals/${meal.id}`} className="text-xs text-brand-600 hover:underline">Edit</Link>
-                        <button onClick={() => handleDelete(meal.id)} className="text-xs text-red-500 hover:underline">Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
+              data.map((meal) => (
+                <tr
+                  key={meal.id}
+                  onClick={() => router.push(`/meals/${meal.id}`)}
+                  className="hover:bg-[#F5F0E8] cursor-pointer transition-colors"
+                >
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs bg-[#D8F3DC] border border-[#B7E4C7] rounded px-1.5 py-0.5 text-[#1B4332]">
+                      #{meal.id}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-[#1A1A18]">{meal.name}</td>
+                  <td className="px-4 py-3"><CategoryBadge category={meal.category} /></td>
+                  <td className="px-4 py-3 text-[#7A9080]">{meal.price || '—'}</td>
+                  <td className="px-4 py-3 text-[#7A9080]">{meal._count?.subRecipes ?? 0}</td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

@@ -1,55 +1,48 @@
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsArray,
-  ValidateNested,
-  Min,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsOptional, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
-export class MealComponentDto {
-  @IsOptional()
-  @IsUUID()
-  ingredient_id?: string;
-
-  @IsOptional()
-  @IsUUID()
-  sub_recipe_id?: string;
-
-  @IsNumber()
-  @Min(0)
-  quantity: number;
-
+export class CreateMealSubRecipeDto {
   @IsString()
-  unit: string;
+  subRecipeId: string;
+
+  @IsOptional()
+  @IsString()
+  srName?: string;
+
+  @IsOptional()
+  @IsNumber()
+  perPortion?: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
 }
 
 export class CreateMealDto {
   @IsString()
-  name: string;
+  id: string;
 
   @IsString()
-  display_name: string;
-
-  @IsNumber()
-  @Min(0)
-  final_yield_weight: number;
+  name: string;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  pricing_override?: number;
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsString()
+  price?: string;
+
+  @IsOptional()
+  @IsString()
+  backendUrl?: string;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => MealComponentDto)
-  components?: MealComponentDto[];
+  @Type(() => CreateMealSubRecipeDto)
+  subRecipes?: CreateMealSubRecipeDto[];
 }
 
-export class UpdateMealDto extends PartialType(CreateMealDto) {
-  components?: MealComponentDto[];
-}
+export class UpdateMealDto extends PartialType(CreateMealDto) {}

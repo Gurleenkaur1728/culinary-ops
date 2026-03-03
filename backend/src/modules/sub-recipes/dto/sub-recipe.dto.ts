@@ -1,63 +1,64 @@
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsArray,
-  ValidateNested,
-  Min,
-  IsUUID,
-} from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PartialType } from '@nestjs/mapped-types';
 
-export class SubRecipeComponentDto {
-  @IsOptional()
-  @IsUUID()
-  ingredient_id?: string;
-
-  @IsOptional()
-  @IsUUID()
-  child_sub_recipe_id?: string;
-
-  @IsNumber()
-  @Min(0)
-  quantity: number;
-
+export class CreateSRIngredientDto {
   @IsString()
-  unit: string;
+  ingredientId: string;
+
+  @IsOptional()
+  @IsNumber()
+  weight?: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  trimPct?: number;
 }
 
 export class CreateSubRecipeDto {
   @IsString()
+  id: string;
+
+  @IsString()
   name: string;
 
+  @IsOptional()
   @IsString()
-  sub_recipe_code: string;
+  station?: string;
 
   @IsOptional()
   @IsString()
-  instructions?: string;
+  day?: string;
 
   @IsOptional()
-  @IsString()
-  production_day?: string;
-
-  @IsOptional()
-  @IsString()
-  station_tag?: string;
-
   @IsNumber()
-  @Min(0)
-  base_yield_weight: number;
+  priority?: number;
+
+  @IsOptional()
+  @IsString()
+  prepInstructions?: string;
+
+  @IsOptional()
+  @IsString()
+  backendUrl?: string;
+
+  @IsOptional()
+  @IsNumber()
+  baseWeight?: number;
+
+  @IsOptional()
+  @IsString()
+  baseUnit?: string;
 
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SubRecipeComponentDto)
-  components?: SubRecipeComponentDto[];
+  @Type(() => CreateSRIngredientDto)
+  ingredients?: CreateSRIngredientDto[];
 }
 
-export class UpdateSubRecipeDto extends PartialType(CreateSubRecipeDto) {
-  sub_recipe_code?: string;
-  components?: SubRecipeComponentDto[];
-}
+export class UpdateSubRecipeDto extends PartialType(CreateSubRecipeDto) {}
