@@ -2,17 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api, MealRecipe } from '../../lib/api';
+import { api, apiExtra, MealRecipe } from '../../lib/api';
 
 export default function MealsPage() {
   const [meals, setMeals] = useState<MealRecipe[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
 
   async function load() {
     setLoading(true);
     try {
-      setMeals(await api.getMeals());
+      const [data, cats] = await Promise.all([
+        api.getMeals(),
+        apiExtra.getMealCategories(),
+      ]);
+      setMeals(data);
+      setCategories(cats as string[]);
     } finally {
       setLoading(false);
     }
@@ -21,40 +28,76 @@ export default function MealsPage() {
   useEffect(() => { load(); }, []);
 
   async function handleDelete(id: string) {
-    if (!confirm('Delete this meal recipe?')) return;
+    if (!confirm('Delete this meal?')) return;
     try {
       await api.deleteMeal(id);
       load();
-    } catch (e: any) {
-      alert(e.message);
-    }
+    } catch (e: any) { alert(e.message); }
   }
 
-  const filtered = meals.filter(
-    (m) =>
+  const filtered = meals.filter((m) => {
+    const matchSearch =
       m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.display_name.toLowerCase().includes(search.toLowerCase()),
-  );
+      m.display_name.toLowerCase().includes(search.toLowerCase());
+    const matchCat = !filterCategory || (m as any).category === filterCategory;
+    return matchSearch && matchCat;
+  });
+
+  const catCounts = meals.reduce((acc, m) => {
+    const key = (m as any).category ?? 'Other';
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const avgCost = filtered.length
+    ? filtered.reduce((s, m) => s + m.computed_cost, 0) / filtered.length
+    : 0;
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Meal Recipes</h1>
-        <Link
-          href="/meals/new"
-          className="px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors"
-        >
-          + New Meal Recipe
-        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Meal Recipes</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{meals.length} total meals</p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/meals/pricing" className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+            Pricing Editor
+          </Link>
+          <Link href="/meals/new" className="px-4 py-2 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors">
+            + New Meal
+          </Link>
+        </div>
       </div>
 
-      <div className="mb-6">
+      {/* Category pills */}
+      {!loading && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          <button
+            onClick={() => setFilterCategory('')}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterCategory === '' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            All ({meals.length})
+          </button>
+          {Object.entries(catCounts).sort(([a], [b]) => a.localeCompare(b)).map(([cat, count]) => (
+            <button
+              key={cat}
+              onClick={() => setFilterCategory(filterCategory === cat ? '' : cat)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${filterCategory === cat ? 'bg-brand-500 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}
+            >
+              {cat} ({count})
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-5">
         <input
           type="text"
           placeholder="Search meals..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
 
@@ -62,42 +105,44 @@ export default function MealsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {['Name', 'Display Name', 'Yield (g)', 'Computed Cost', 'Sell Price', 'Margin', 'Components', ''].map((h) => (
+              {['Meal Name', 'Category', 'Components', 'Prod. Cost', 'Sell Price', 'Margin', ''].map((h) => (
                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">Loading...</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">Loading...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No meals found</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-gray-400">No meals found</td></tr>
             ) : (
               filtered.map((meal) => {
-                const margin = meal.pricing_override
-                  ? (((meal.pricing_override - meal.computed_cost) / meal.pricing_override) * 100).toFixed(1)
-                  : null;
+                const cost = meal.computed_cost;
+                const sell = meal.pricing_override ?? 0;
+                const profit = sell > 0 && cost > 0 ? sell - cost : null;
+                const margin = profit !== null && sell > 0 ? (profit / sell) * 100 : null;
                 return (
                   <tr key={meal.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{meal.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{meal.display_name}</td>
-                    <td className="px-4 py-3 text-gray-600">{meal.final_yield_weight}g</td>
-                    <td className="px-4 py-3 font-medium text-gray-900">${meal.computed_cost.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {meal.pricing_override ? `$${meal.pricing_override.toFixed(2)}` : '—'}
+                    <td className="px-4 py-3 font-medium text-gray-900">{meal.display_name}</td>
+                    <td className="px-4 py-3">
+                      {(meal as any).category ? (
+                        <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded-md text-xs">{(meal as any).category}</span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{meal.components.length}</td>
+                    <td className="px-4 py-3">
+                      {cost > 0 ? <span className="font-medium text-gray-900">${cost.toFixed(2)}</span> : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3">
-                      {margin ? (
-                        <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                          Number(margin) > 50 ? 'bg-green-50 text-green-700' :
-                          Number(margin) > 20 ? 'bg-yellow-50 text-yellow-700' :
-                          'bg-red-50 text-red-700'
-                        }`}>
-                          {margin}%
-                        </span>
-                      ) : '—'}
+                      {sell > 0 ? <span className="font-semibold text-green-700">${sell.toFixed(2)}</span> : <span className="text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">{meal.components.length}</td>
+                    <td className="px-4 py-3">
+                      {margin !== null ? (
+                        <span className={`text-xs font-semibold ${margin >= 30 ? 'text-green-600' : margin >= 20 ? 'text-yellow-600' : 'text-red-500'}`}>
+                          {margin.toFixed(1)}%
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <Link href={`/meals/${meal.id}`} className="text-xs text-brand-600 hover:underline">Edit</Link>
@@ -110,6 +155,12 @@ export default function MealsPage() {
             )}
           </tbody>
         </table>
+        {!loading && filtered.length > 0 && (
+          <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between text-xs text-gray-500">
+            <span>{filtered.length} meals shown</span>
+            <span>Avg production cost: <strong className="text-gray-900">${avgCost.toFixed(2)}</strong></span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -158,4 +158,38 @@ export class MealsService {
       }
     }
   }
+
+  /** Cooking sheet: all meals with components and instructions */
+  async getCookingSheet(category?: string) {
+    return this.prisma.mealRecipe.findMany({
+      where: {
+        is_active: true,
+        ...(category ? { category } : {}),
+      },
+      include: {
+        components: {
+          include: {
+            ingredient: { select: { id: true, internal_name: true, unit: true } },
+            sub_recipe: {
+              select: {
+                id: true, name: true, sub_recipe_code: true,
+                station_tag: true, instructions: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  /** All unique categories */
+  async getCategories() {
+    const result = await this.prisma.mealRecipe.groupBy({
+      by: ['category'],
+      where: { category: { not: null } },
+      orderBy: { category: 'asc' },
+    });
+    return result.map((r) => r.category).filter(Boolean);
+  }
 }

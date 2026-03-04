@@ -163,4 +163,49 @@ export class SubRecipesService {
       }
     }
   }
+
+  /** Prep sheet: all sub-recipes with full ingredient details, grouped by station, sorted by priority */
+  async getPrepSheet(stationTag?: string, day?: string) {
+    const subRecipes = await this.prisma.subRecipe.findMany({
+      where: {
+        ...(stationTag ? { station_tag: stationTag } : {}),
+        ...(day ? { production_day: day } : {}),
+      },
+      include: {
+        components: {
+          include: {
+            ingredient: {
+              select: {
+                id: true, internal_name: true, display_name: true,
+                sku: true, category: true, unit: true,
+              },
+            },
+            child_sub_recipe: {
+              select: { id: true, name: true, sub_recipe_code: true },
+            },
+          },
+        },
+      },
+      orderBy: [{ station_tag: 'asc' }, { priority: 'asc' }, { name: 'asc' }],
+    });
+
+    // Group by station
+    const grouped: Record<string, typeof subRecipes> = {};
+    for (const sr of subRecipes) {
+      const key = sr.station_tag ?? 'Unassigned';
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(sr);
+    }
+    return grouped;
+  }
+
+  /** All unique production days */
+  async getProductionDays() {
+    const result = await this.prisma.subRecipe.groupBy({
+      by: ['production_day'],
+      where: { production_day: { not: null } },
+      orderBy: { production_day: 'asc' },
+    });
+    return result.map((r) => r.production_day).filter(Boolean);
+  }
 }

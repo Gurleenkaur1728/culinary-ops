@@ -29,6 +29,19 @@ export class SubRecipesController {
     return this.service.getStationTags();
   }
 
+  @Get('production-days')
+  getProductionDays() {
+    return this.service.getProductionDays();
+  }
+
+  @Get('prep-sheet')
+  getPrepSheet(
+    @Query('station') stationTag?: string,
+    @Query('day') day?: string,
+  ) {
+    return this.service.getPrepSheet(stationTag, day);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.findOne(id);
