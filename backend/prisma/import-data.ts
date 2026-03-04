@@ -4,33 +4,6 @@ import * as path from 'path';
 
 const prisma = new PrismaClient();
 
-interface SubRecipeRow {
-  station: string;
-  day: string;
-  priority: string;
-  subRecipeId: string;
-  subRecipeUrl: string;
-  subRecipeName: string;
-  ingredientId: string;
-  ingredientName: string;
-  trimPercent: string;
-  weightQuantity: string;
-  unit: string;
-  prepInstructions: string;
-}
-
-interface DishRow {
-  dishId: string;
-  dishUrl: string;
-  category: string;
-  dishName: string;
-  subRecipeId: string;
-  subRecipeName: string;
-  perPortion: string;
-  unit: string;
-  price: string;
-}
-
 function parseCSV(content: string): string[][] {
   const lines: string[][] = [];
   let currentLine: string[] = [];
@@ -44,7 +17,7 @@ function parseCSV(content: string): string[][] {
     if (char === '"') {
       if (inQuotes && nextChar === '"') {
         currentField += '"';
-        i++; // Skip next quote
+        i++;
       } else {
         inQuotes = !inQuotes;
       }
@@ -52,14 +25,10 @@ function parseCSV(content: string): string[][] {
       currentLine.push(currentField.trim());
       currentField = '';
     } else if ((char === '\n' || char === '\r') && !inQuotes) {
-      if (char === '\r' && nextChar === '\n') {
-        i++; // Skip \n in \r\n
-      }
+      if (char === '\r' && nextChar === '\n') i++;
       if (currentField || currentLine.length > 0) {
         currentLine.push(currentField.trim());
-        if (currentLine.some(field => field !== '')) {
-          lines.push(currentLine);
-        }
+        if (currentLine.some((f) => f !== '')) lines.push(currentLine);
         currentLine = [];
         currentField = '';
       }
@@ -67,246 +36,252 @@ function parseCSV(content: string): string[][] {
       currentField += char;
     }
   }
-
-  // Push last line if exists
   if (currentField || currentLine.length > 0) {
     currentLine.push(currentField.trim());
-    if (currentLine.some(field => field !== '')) {
-      lines.push(currentLine);
-    }
+    if (currentLine.some((f) => f !== '')) lines.push(currentLine);
   }
-
   return lines;
 }
 
+// Strip column-number annotations like "[001]" from header values
+function cleanHeader(value: string): string {
+  return value.replace(/\[0*\d+\]/g, '').replace(/\n/g, ' ').trim();
+}
+
 function cleanValue(value: string): string {
-  return value.replace(/\[0+\d+\]/g, '').trim();
+  return (value || '').trim();
 }
 
 async function importData() {
-  console.log('Starting data import...\n');
+  console.log('🚀 Starting Betterday data import...\n');
 
-  // Read CSV files
-  const subRecipePath = path.join(__dirname, '../../NEW Culinary App Database - Sub-Recipe Masterlist (1).csv');
-  const dishPath = path.join(__dirname, '../../NEW Culinary App Database - Dish Masterlist (1).csv');
+  const root = path.join(__dirname, '../..');
+  const subRecipePath = path.join(root, 'NEW Culinary App Database - Sub-Recipe Masterlist (1).csv');
+  const dishPath = path.join(root, 'NEW Culinary App Database - Dish Masterlist (1).csv');
 
-  const subRecipeContent = fs.readFileSync(subRecipePath, 'utf-8');
-  const dishContent = fs.readFileSync(dishPath, 'utf-8');
+  const subRecipeLines = parseCSV(fs.readFileSync(subRecipePath, 'utf-8'));
+  const dishLines = parseCSV(fs.readFileSync(dishPath, 'utf-8'));
 
-  const subRecipeLines = parseCSV(subRecipeContent);
-  const dishLines = parseCSV(dishContent);
+  console.log(`📄 Sub-recipe rows: ${subRecipeLines.length - 1}`);
+  console.log(`📄 Dish rows: ${dishLines.length - 1}\n`);
 
-  console.log(`Found ${subRecipeLines.length - 1} sub-recipe rows`);
-  console.log(`Found ${dishLines.length - 1} dish rows\n`);
+  // ── STEP 1: Parse sub-recipe CSV ─────────────────────────────────────────
+  // Columns: Station[0], Day[1], Priority[2], SubRecipeId[3], SubRecipeUrl[4],
+  //          SubRecipeName[5], IngredientId[6], IngredientName[7], Trim%[8],
+  //          Weight/Qty[9], Unit[10], PrepInstructions[11]
 
-  // Skip header rows
-  const subRecipeRows = subRecipeLines.slice(1);
-  const dishRows = dishLines.slice(1);
+  interface SRRow {
+    station: string; day: string; priority: string;
+    srId: string; srName: string;
+    ingId: string; ingName: string;
+    trim: string; qty: string; unit: string; instructions: string;
+  }
 
-  // Group sub-recipes by ID
-  const subRecipeGroups = new Map<string, SubRecipeRow[]>();
-  for (const row of subRecipeRows) {
-    if (row.length < 12) continue;
-    
-    const subRecipeId = cleanValue(row[3]);
-    if (!subRecipeId) continue;
+  const srGroups = new Map<string, SRRow[]>();
 
-    const rowData: SubRecipeRow = {
+  for (const row of subRecipeLines.slice(1)) {
+    if (row.length < 10) continue;
+    const srId = cleanValue(row[3]);
+    if (!srId) continue;
+
+    const r: SRRow = {
       station: cleanValue(row[0]),
       day: cleanValue(row[1]),
       priority: cleanValue(row[2]),
-      subRecipeId,
-      subRecipeUrl: cleanValue(row[4]),
-      subRecipeName: cleanValue(row[5]),
-      ingredientId: cleanValue(row[6]),
-      ingredientName: cleanValue(row[7]),
-      trimPercent: cleanValue(row[8]),
-      weightQuantity: cleanValue(row[9]),
+      srId,
+      srName: cleanValue(row[5]),
+      ingId: cleanValue(row[6]),
+      ingName: cleanValue(row[7]),
+      trim: cleanValue(row[8]),
+      qty: cleanValue(row[9]),
       unit: cleanValue(row[10]),
-      prepInstructions: cleanValue(row[11]),
+      instructions: cleanValue(row[11] || ''),
     };
 
-    if (!subRecipeGroups.has(subRecipeId)) {
-      subRecipeGroups.set(subRecipeId, []);
-    }
-    subRecipeGroups.get(subRecipeId)!.push(rowData);
+    if (!srGroups.has(srId)) srGroups.set(srId, []);
+    srGroups.get(srId)!.push(r);
   }
 
-  // Group dishes by ID
+  // ── STEP 2: Parse dish CSV ────────────────────────────────────────────────
+  // Columns: DishId[0], DishUrl[1], Category[2], DishName[3],
+  //          SubRecipeId[4], SubRecipeName[5], PerPortion[6], Unit[7], Price[8]
+
+  interface DishRow {
+    dishId: string; category: string; dishName: string;
+    srId: string; perPortion: string; unit: string; price: string;
+  }
+
   const dishGroups = new Map<string, DishRow[]>();
-  for (const row of dishRows) {
-    if (row.length < 9) continue;
-    
+
+  for (const row of dishLines.slice(1)) {
+    if (row.length < 5) continue;
     const dishId = cleanValue(row[0]);
     if (!dishId) continue;
 
-    const rowData: DishRow = {
+    const r: DishRow = {
       dishId,
-      dishUrl: cleanValue(row[1]),
       category: cleanValue(row[2]),
       dishName: cleanValue(row[3]),
-      subRecipeId: cleanValue(row[4]),
-      subRecipeName: cleanValue(row[5]),
+      srId: cleanValue(row[4]),
       perPortion: cleanValue(row[6]),
       unit: cleanValue(row[7]),
       price: cleanValue(row[8]),
     };
 
-    if (!dishGroups.has(dishId)) {
-      dishGroups.set(dishId, []);
-    }
-    dishGroups.get(dishId)!.push(rowData);
+    if (!dishGroups.has(dishId)) dishGroups.set(dishId, []);
+    dishGroups.get(dishId)!.push(r);
   }
 
-  console.log(`Grouped into ${subRecipeGroups.size} unique sub-recipes`);
-  console.log(`Grouped into ${dishGroups.size} unique dishes\n`);
+  console.log(`📦 Unique sub-recipes: ${srGroups.size}`);
+  console.log(`🍽  Unique dishes: ${dishGroups.size}\n`);
 
-  // Import ingredients from sub-recipes
-  console.log('Importing ingredients...');
-  const ingredientMap = new Map<string, any>();
-  const oldIdToNewIdMap = new Map<string, string>();
-  
-  for (const [_, rows] of subRecipeGroups) {
-    for (const row of rows) {
-      if (row.ingredientId && row.ingredientName && !ingredientMap.has(row.ingredientId)) {
-        ingredientMap.set(row.ingredientId, {
-          internal_name: row.ingredientName,
-          display_name: row.ingredientName,
-          sku: `ING-${row.ingredientId}`,
-          category: row.station || 'General',
-          base_weight: 1.0,
-          cost_per_unit: 0,
-          allergen_tags: [],
+  // ── STEP 3: Collect unique ingredients ───────────────────────────────────
+  console.log('🥕 Importing ingredients...');
+  const ingData = new Map<string, { internal_name: string; category: string }>();
+
+  for (const rows of srGroups.values()) {
+    for (const r of rows) {
+      if (r.ingId && r.ingName && !ingData.has(r.ingId)) {
+        ingData.set(r.ingId, {
+          internal_name: r.ingName,
+          category: r.station || 'General',
         });
       }
     }
   }
 
-  // Create ingredients in batches
-  const ingredientEntries = Array.from(ingredientMap.entries());
-  for (let i = 0; i < ingredientEntries.length; i += 100) {
-    const batch = ingredientEntries.slice(i, i + 100);
+  // Batch upsert ingredients
+  const oldIngToNew = new Map<string, string>();
+  const ingEntries = Array.from(ingData.entries());
+
+  for (let i = 0; i < ingEntries.length; i += 50) {
+    const batch = ingEntries.slice(i, i + 50);
     await Promise.all(
-      batch.map(async ([oldId, data]) => {
+      batch.map(async ([oldId, d]) => {
         try {
-          const ingredient = await prisma.ingredient.upsert({
-            where: { sku: data.sku },
-            create: data,
-            update: data,
+          const ing = await prisma.ingredient.upsert({
+            where: { sku: `ING-${oldId}` },
+            create: {
+              internal_name: d.internal_name,
+              display_name: d.internal_name,
+              sku: `ING-${oldId}`,
+              category: d.category,
+              base_weight: 1.0,
+              unit: 'Kgs',
+              cost_per_unit: 0,
+              allergen_tags: [],
+              benefits: [],
+            },
+            update: {},
           });
-          oldIdToNewIdMap.set(oldId, ingredient.id);
-        } catch (err: any) {
-          console.error(`Error creating ingredient ${oldId}:`, err.message);
+          oldIngToNew.set(oldId, ing.id);
+        } catch (e: any) {
+          console.error(`  ⚠ ingredient ${oldId}: ${e.message}`);
         }
-      })
+      }),
     );
-    console.log(`  Imported ${Math.min(i + 100, ingredientEntries.length)} / ${ingredientEntries.length} ingredients`);
+    process.stdout.write(`\r  ${Math.min(i + 50, ingEntries.length)} / ${ingEntries.length}`);
   }
+  console.log(`\n✅ ${oldIngToNew.size} ingredients imported\n`);
 
-  console.log(`✓ Imported ${ingredientMap.size} ingredients\n`);
+  // ── STEP 4: Import sub-recipes ────────────────────────────────────────────
+  console.log('🍲 Importing sub-recipes...');
+  const oldSrToNew = new Map<string, string>();
+  let srCount = 0;
 
-  // Import sub-recipes
-  console.log('Importing sub-recipes...');
-  let subRecipeCount = 0;
-  const oldSubRecipeIdToNewIdMap = new Map<string, string>();
-  
-  for (const [subRecipeId, rows] of Array.from(subRecipeGroups.entries())) {
-    const firstRow = rows[0];
+  for (const [srId, rows] of srGroups) {
+    // Header row (first row that has srName filled)
+    const header = rows.find((r) => r.srName) || rows[0];
+
     const components = rows
-      .filter(row => row.ingredientId && row.ingredientName && oldIdToNewIdMap.has(row.ingredientId))
-      .map(row => ({
-        ingredient_id: oldIdToNewIdMap.get(row.ingredientId),
-        quantity: parseFloat(row.weightQuantity) || 0,
-        unit: row.unit || 'unit',
+      .filter((r) => r.ingId && oldIngToNew.has(r.ingId))
+      .map((r) => ({
+        ingredient_id: oldIngToNew.get(r.ingId)!,
+        quantity: parseFloat(r.qty) || 0,
+        unit: r.unit || 'Kgs',
+        trim_percentage: parseFloat(r.trim) || 0,
       }));
 
     try {
-      const subRecipe = await prisma.subRecipe.upsert({
-        where: { sub_recipe_code: `SR-${subRecipeId}` },
+      const sr = await prisma.subRecipe.upsert({
+        where: { sub_recipe_code: `SR-${srId}` },
         create: {
-          name: firstRow.subRecipeName,
-          sub_recipe_code: `SR-${subRecipeId}`,
-          station_tag: firstRow.station || 'General',
-          production_day: firstRow.day || 'Monday',
-          instructions: firstRow.prepInstructions,
+          name: header.srName || `Sub-Recipe ${srId}`,
+          sub_recipe_code: `SR-${srId}`,
+          station_tag: header.station || null,
+          production_day: header.day || null,
+          priority: parseInt(header.priority) || 3,
+          instructions: header.instructions || null,
           base_yield_weight: 1.0,
-          components: {
-            create: components,
-          },
+          base_yield_unit: 'Kgs',
+          components: { create: components },
         },
-        update: {
-          name: firstRow.subRecipeName,
-          station_tag: firstRow.station || 'General',
-          production_day: firstRow.day || 'Monday',
-          instructions: firstRow.prepInstructions,
-        },
+        update: {},
       });
-      oldSubRecipeIdToNewIdMap.set(subRecipeId, subRecipe.id);
-      subRecipeCount++;
-      
-      if (subRecipeCount % 50 === 0) {
-        console.log(`  Imported ${subRecipeCount} / ${subRecipeGroups.size} sub-recipes`);
-      }
-    } catch (err: any) {
-      console.error(`Error creating sub-recipe ${subRecipeId}:`, err.message);
+      oldSrToNew.set(srId, sr.id);
+      srCount++;
+      if (srCount % 100 === 0) process.stdout.write(`\r  ${srCount} / ${srGroups.size}`);
+    } catch (e: any) {
+      console.error(`\n  ⚠ sub-recipe ${srId}: ${e.message}`);
     }
   }
+  console.log(`\n✅ ${srCount} sub-recipes imported\n`);
 
-  console.log(`✓ Imported ${subRecipeCount} sub-recipes\n`);
-
-  // Import meals (dishes)
-  console.log('Importing meals...');
+  // ── STEP 5: Import meals ──────────────────────────────────────────────────
+  console.log('🍽  Importing meals...');
   let mealCount = 0;
-  
-  for (const [dishId, rows] of Array.from(dishGroups.entries())) {
-    const firstRow = rows.find(r => r.dishName) || rows[0];
+
+  for (const [dishId, rows] of dishGroups) {
+    const header = rows.find((r) => r.dishName) || rows[0];
+    if (!header.dishName) continue;
+
     const components = rows
-      .filter(row => row.subRecipeId && row.perPortion && oldSubRecipeIdToNewIdMap.has(row.subRecipeId))
-      .map(row => ({
-        sub_recipe_id: oldSubRecipeIdToNewIdMap.get(row.subRecipeId),
-        quantity: parseFloat(row.perPortion) || 0,
-        unit: row.unit || 'unit',
+      .filter((r) => r.srId && oldSrToNew.has(r.srId))
+      .map((r) => ({
+        sub_recipe_id: oldSrToNew.get(r.srId)!,
+        quantity: parseFloat(r.perPortion) || 0,
+        unit: r.unit || 'gr',
       }));
 
-    const priceStr = firstRow.price.replace('$', '').replace(',', '');
-    const price = parseFloat(priceStr) || 0;
+    const priceRaw = header.price.replace('$', '').replace(',', '');
+    const price = parseFloat(priceRaw) || null;
 
     try {
       await prisma.mealRecipe.create({
         data: {
-          name: firstRow.dishName,
-          display_name: firstRow.dishName,
-          final_yield_weight: 1.0,
-          pricing_override: price > 0 ? price : null,
-          components: {
-            create: components,
-          },
+          name: header.dishName,
+          display_name: header.dishName,
+          category: header.category || null,
+          final_yield_weight: 0,
+          pricing_override: price,
+          allergen_tags: [],
+          dislikes: [],
+          components: { create: components },
         },
       });
       mealCount++;
-      
-      if (mealCount % 50 === 0) {
-        console.log(`  Imported ${mealCount} / ${dishGroups.size} meals`);
-      }
-    } catch (err: any) {
-      console.error(`Error creating meal ${dishId}:`, err.message);
+      if (mealCount % 50 === 0) process.stdout.write(`\r  ${mealCount} / ${dishGroups.size}`);
+    } catch (e: any) {
+      console.error(`\n  ⚠ meal ${dishId}: ${e.message}`);
     }
   }
+  console.log(`\n✅ ${mealCount} meals imported\n`);
 
-  console.log(`✓ Imported ${mealCount} meals\n`);
+  // ── Summary ───────────────────────────────────────────────────────────────
+  const [ingCount, totalSr, totalMeal] = await Promise.all([
+    prisma.ingredient.count(),
+    prisma.subRecipe.count(),
+    prisma.mealRecipe.count(),
+  ]);
 
-  console.log('✅ Data import completed successfully!');
-  console.log(`\nSummary:`);
-  console.log(`  - ${ingredientMap.size} ingredients`);
-  console.log(`  - ${subRecipeCount} sub-recipes`);
-  console.log(`  - ${mealCount} meals`);
+  console.log('═══════════════════════════════════');
+  console.log('✅ Import complete!');
+  console.log(`   Ingredients : ${ingCount}`);
+  console.log(`   Sub-Recipes : ${totalSr}`);
+  console.log(`   Meals       : ${totalMeal}`);
+  console.log('═══════════════════════════════════');
 }
 
 importData()
-  .catch((e) => {
-    console.error('Import error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch((e) => { console.error('Fatal:', e); process.exit(1); })
+  .finally(() => prisma.$disconnect());

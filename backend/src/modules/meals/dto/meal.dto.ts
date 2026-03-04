@@ -3,6 +3,7 @@ import {
   IsNumber,
   IsOptional,
   IsArray,
+  IsBoolean,
   ValidateNested,
   Min,
   IsUUID,
@@ -34,14 +35,45 @@ export class CreateMealDto {
   @IsString()
   display_name: string;
 
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  final_yield_weight: number;
+  final_yield_weight?: number;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
   pricing_override?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allergen_tags?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  dislikes?: string[];
+
+  @IsOptional()
+  @IsString()
+  heating_instructions?: string;
+
+  @IsOptional()
+  @IsString()
+  packaging_instructions?: string;
+
+  @IsOptional()
+  @IsString()
+  cooking_instructions?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
 
   @IsOptional()
   @IsArray()
