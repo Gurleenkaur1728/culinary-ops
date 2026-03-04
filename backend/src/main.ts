@@ -18,7 +18,15 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Allow any localhost port in development, or match FRONTEND_URL in production
+      const allowed = process.env.FRONTEND_URL;
+      if (!origin || (allowed ? origin === allowed : /^http:\/\/localhost:\d+$/.test(origin))) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   });
 

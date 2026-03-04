@@ -24,9 +24,12 @@ model Ingredient {
   location       String?
   supplier_name  String?
   trim_percentage Float   @default(0)
-  base_weight    Float
-  cost_per_unit  Float
+  base_weight    Float    @default(1)
+  cost_per_unit  Float    @default(0)
+  unit           String   @default("Kgs")
   allergen_tags  String[]
+  benefits       String[]
+  is_active      Boolean  @default(true)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
@@ -40,21 +43,26 @@ model Ingredient {
 model SubRecipe {
   id               String   @id @default(uuid())
   name             String
+  display_name     String?
   sub_recipe_code  String   @unique
   instructions     String?
   production_day   String?
   station_tag      String?
-  base_yield_weight Float
+  priority         Int      @default(3)
+  base_yield_weight Float   @default(1)
+  base_yield_unit   String  @default("Kgs")
   computed_cost    Float    @default(0)
+  is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
-  components       SubRecipeComponent[] @relation("SubRecipeComponents")
+  components        SubRecipeComponent[] @relation("SubRecipeComponents")
   parent_components SubRecipeComponent[] @relation("ChildSubRecipe")
-  meal_components  MealComponent[]
+  meal_components   MealComponent[]
 
   @@index([sub_recipe_code])
   @@index([station_tag])
+  @@index([priority])
 }
 
 model SubRecipeComponent {
@@ -63,7 +71,8 @@ model SubRecipeComponent {
   ingredient_id       String?
   child_sub_recipe_id String?
   quantity            Float
-  unit                String
+  unit                String     @default("Kgs")
+  trim_percentage     Float      @default(0)
 
   sub_recipe          SubRecipe  @relation("SubRecipeComponents", fields: [sub_recipe_id], references: [id], onDelete: Cascade)
   ingredient          Ingredient? @relation(fields: [ingredient_id], references: [id])
@@ -71,19 +80,27 @@ model SubRecipeComponent {
 }
 
 model MealRecipe {
-  id                String   @id @default(uuid())
-  name              String
-  display_name      String
-  final_yield_weight Float
-  pricing_override  Float?
-  computed_cost     Float    @default(0)
-  created_at        DateTime @default(now())
-  updated_at        DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  name                  String
+  display_name          String
+  category              String?
+  final_yield_weight    Float    @default(0)
+  pricing_override      Float?
+  computed_cost         Float    @default(0)
+  allergen_tags         String[]
+  dislikes              String[]
+  heating_instructions  String?
+  packaging_instructions String?
+  cooking_instructions  String?
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
 
-  components        MealComponent[]
-  orders            Order[]
+  components MealComponent[]
+  orders     Order[]
 
   @@index([name])
+  @@index([category])
 }
 
 model MealComponent {
@@ -92,7 +109,7 @@ model MealComponent {
   ingredient_id  String?
   sub_recipe_id  String?
   quantity       Float
-  unit           String
+  unit           String      @default("gr")
 
   meal           MealRecipe  @relation(fields: [meal_id], references: [id], onDelete: Cascade)
   ingredient     Ingredient? @relation(fields: [ingredient_id], references: [id])
@@ -108,7 +125,7 @@ model Order {
   source_platform   String   @default("shopify")
   created_at        DateTime @default(now())
 
-  meal              MealRecipe @relation(fields: [meal_id], references: [id])
+  meal MealRecipe @relation(fields: [meal_id], references: [id])
 
   @@index([production_date])
   @@index([meal_id])

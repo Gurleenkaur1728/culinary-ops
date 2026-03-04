@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
@@ -19,13 +20,23 @@ export class MealsController {
   constructor(private readonly service: MealsService) {}
 
   @Get()
-  findAll() {
+  findAll(@Query('category') category?: string) {
     return this.service.findAll();
+  }
+
+  @Get('categories')
+  getCategories() {
+    return this.service.getCategories();
   }
 
   @Get('pricing')
   getPricing() {
     return this.service.getPricing();
+  }
+
+  @Get('cooking-sheet')
+  getCookingSheet(@Query('category') category?: string) {
+    return this.service.getCookingSheet(category);
   }
 
   @Get(':id')

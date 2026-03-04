@@ -306,3 +306,71 @@ export interface ProductionReport {
   grouped_by_station: Record<string, SubRecipeRequirement[]>;
   grouped_by_day: Record<string, SubRecipeRequirement[]>;
 }
+
+// ─── New endpoints added ─────────────────────────────────────────────────────
+
+// Extend api object — appended separately so existing code is unaffected
+export const apiExtra = {
+  // Sub-recipe prep sheet (no orders needed)
+  getPrepSheet: (station?: string, day?: string) => {
+    const params = new URLSearchParams();
+    if (station) params.set('station', station);
+    if (day) params.set('day', day);
+    const qs = params.toString();
+    return request<Record<string, PrepSheetSubRecipe[]>>(`/sub-recipes/prep-sheet${qs ? `?${qs}` : ''}`);
+  },
+
+  getProductionDays: () => request<string[]>('/sub-recipes/production-days'),
+
+  // Meal cooking sheet (no orders needed)
+  getCookingSheet: (category?: string) => {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    return request<CookingSheetMeal[]>(`/meals/cooking-sheet${qs}`);
+  },
+
+  getMealCategories: () => request<string[]>('/meals/categories'),
+};
+
+// ─── New types ────────────────────────────────────────────────────────────────
+
+export interface PrepSheetComponent {
+  id: string;
+  quantity: number;
+  unit: string;
+  trim_percentage: number;
+  ingredient: { id: string; internal_name: string; display_name: string; sku: string; category: string; unit: string } | null;
+  child_sub_recipe: { id: string; name: string; sub_recipe_code: string } | null;
+}
+
+export interface PrepSheetSubRecipe {
+  id: string;
+  name: string;
+  sub_recipe_code: string;
+  station_tag: string | null;
+  production_day: string | null;
+  priority: number;
+  instructions: string | null;
+  base_yield_weight: number;
+  base_yield_unit: string;
+  components: PrepSheetComponent[];
+}
+
+export interface CookingSheetMeal {
+  id: string;
+  name: string;
+  display_name: string;
+  category: string | null;
+  cooking_instructions: string | null;
+  heating_instructions: string | null;
+  packaging_instructions: string | null;
+  allergen_tags: string[];
+  pricing_override: number | null;
+  computed_cost: number;
+  components: {
+    id: string;
+    quantity: number;
+    unit: string;
+    ingredient: { id: string; internal_name: string; unit: string } | null;
+    sub_recipe: { id: string; name: string; sub_recipe_code: string; station_tag: string | null; instructions: string | null } | null;
+  }[];
+}
