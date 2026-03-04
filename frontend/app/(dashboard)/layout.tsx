@@ -10,6 +10,7 @@ const NAV = [
   { href: '/sub-recipes',            label: 'Sub-Recipes',      icon: '🍲' },
   { href: '/meals',                  label: 'Meal Recipes',     icon: '🍽' },
   { href: '/meals/pricing',          label: 'Meal Pricing',     icon: '💲' },
+  { href: '/production',             label: 'Production Plans', icon: '📅' },
   { href: '/reports/meals',          label: 'Meals Report',     icon: '📋' },
   { href: '/reports/cooking',        label: 'Cooking Report',   icon: '👨‍🍳' },
   { href: '/reports/sub-recipes',    label: 'Sub-Recipes Report', icon: '📊' },

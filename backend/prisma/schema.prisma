@@ -96,8 +96,9 @@ model MealRecipe {
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
 
-  components MealComponent[]
-  orders     Order[]
+  components            MealComponent[]
+  orders                Order[]
+  production_plan_items ProductionPlanItem[]
 
   @@index([name])
   @@index([category])
@@ -130,4 +131,30 @@ model Order {
   @@index([production_date])
   @@index([meal_id])
   @@index([external_order_id])
+}
+
+model ProductionPlan {
+  id         String   @id @default(uuid())
+  week_label String
+  week_start DateTime
+  status     String   @default("draft")
+  notes      String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  items ProductionPlanItem[]
+
+  @@index([week_start])
+}
+
+model ProductionPlanItem {
+  id       String @id @default(uuid())
+  plan_id  String
+  meal_id  String
+  quantity Int    @default(0)
+
+  plan ProductionPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  meal MealRecipe     @relation(fields: [meal_id], references: [id])
+
+  @@unique([plan_id, meal_id])
 }

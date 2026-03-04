@@ -154,6 +154,35 @@ export const api = {
     request<{ subRecipes: number; meals: number }>('/production/recalculate-costs', {
       method: 'POST',
     }),
+
+  // Production Plans
+  getProductionPlans: () => request<ProductionPlan[]>('/production-plans'),
+
+  getProductionPlan: (id: string) => request<ProductionPlanDetail>(`/production-plans/${id}`),
+
+  createProductionPlan: (data: {
+    week_label: string;
+    week_start: string;
+    notes?: string;
+    items?: { meal_id: string; quantity: number }[];
+  }) => request<ProductionPlan>('/production-plans', { method: 'POST', body: JSON.stringify(data) }),
+
+  updateProductionPlan: (id: string, data: {
+    week_label?: string;
+    week_start?: string;
+    status?: string;
+    notes?: string;
+    items?: { meal_id: string; quantity: number }[];
+  }) => request<ProductionPlanDetail>(`/production-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  deleteProductionPlan: (id: string) =>
+    request<void>(`/production-plans/${id}`, { method: 'DELETE' }),
+
+  getProductionPlanSubRecipeReport: (id: string) =>
+    request<PlanSubRecipeReport>(`/production-plans/${id}/sub-recipe-report`),
+
+  getProductionPlanShoppingList: (id: string) =>
+    request<PlanShoppingListReport>(`/production-plans/${id}/shopping-list`),
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -373,4 +402,90 @@ export interface CookingSheetMeal {
     ingredient: { id: string; internal_name: string; unit: string } | null;
     sub_recipe: { id: string; name: string; sub_recipe_code: string; station_tag: string | null; instructions: string | null } | null;
   }[];
+}
+
+// ─── Production Plan types ────────────────────────────────────────────────────
+
+export interface ProductionPlan {
+  id: string;
+  week_label: string;
+  week_start: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  items: {
+    id: string;
+    quantity: number;
+    meal: { id: string; display_name: string; category: string | null };
+  }[];
+}
+
+export interface ProductionPlanItem {
+  id: string;
+  plan_id: string;
+  meal_id: string;
+  quantity: number;
+  meal: {
+    id: string;
+    name: string;
+    display_name: string;
+    category: string | null;
+    allergen_tags: string[];
+    computed_cost: number;
+  };
+}
+
+export interface ProductionPlanDetail {
+  id: string;
+  week_label: string;
+  week_start: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  items: ProductionPlanItem[];
+}
+
+export interface PlanSubRecipeRow {
+  id: string;
+  name: string;
+  sub_recipe_code: string;
+  station_tag: string | null;
+  production_day: string | null;
+  priority: number;
+  instructions: string | null;
+  base_yield_weight: number;
+  base_yield_unit: string;
+  total_quantity: number;
+  unit: string;
+  meal_breakdown: { meal: string; qty: number }[];
+}
+
+export interface PlanSubRecipeReport {
+  plan_id: string;
+  week_label: string;
+  grouped_by_station: Record<string, PlanSubRecipeRow[]>;
+  total_sub_recipes: number;
+}
+
+export interface PlanIngredientRow {
+  id: string;
+  internal_name: string;
+  display_name: string;
+  sku: string;
+  category: string;
+  supplier_name: string | null;
+  location: string | null;
+  total_quantity: number;
+  unit: string;
+  cost_per_unit: number;
+  allergen_tags: string[];
+}
+
+export interface PlanShoppingListReport {
+  plan_id: string;
+  week_label: string;
+  grouped_by_category: Record<string, PlanIngredientRow[]>;
+  total_ingredients: number;
 }
