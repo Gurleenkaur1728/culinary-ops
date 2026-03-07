@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -12,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { MealsService } from './meals.service';
-import { CreateMealDto, UpdateMealDto } from './dto/meal.dto';
+import { CreateMealDto, UpdateMealDto, AddMealComponentDto, UpdateMealComponentDto } from './dto/meal.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('meals')
@@ -60,5 +61,32 @@ export class MealsController {
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
+  }
+
+  // ─── Component CRUD ────────────────────────────────────────────────────────
+
+  @Post(':id/components')
+  addComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddMealComponentDto,
+  ) {
+    return this.service.addComponent(id, dto);
+  }
+
+  @Patch(':id/components/:componentId')
+  updateComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('componentId', ParseUUIDPipe) componentId: string,
+    @Body() dto: UpdateMealComponentDto,
+  ) {
+    return this.service.updateComponent(id, componentId, dto);
+  }
+
+  @Delete(':id/components/:componentId')
+  removeComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('componentId', ParseUUIDPipe) componentId: string,
+  ) {
+    return this.service.removeComponent(id, componentId);
   }
 }

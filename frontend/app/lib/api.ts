@@ -114,6 +114,16 @@ export const api = {
   deleteMeal: (id: string) =>
     request<void>(`/meals/${id}`, { method: 'DELETE' }),
 
+  // Meal component CRUD
+  addMealComponent: (mealId: string, data: { ingredient_id?: string; sub_recipe_id?: string; quantity: number; unit: string }) =>
+    request<any>(`/meals/${mealId}/components`, { method: 'POST', body: JSON.stringify(data) }),
+
+  updateMealComponent: (mealId: string, componentId: string, data: { quantity?: number; unit?: string }) =>
+    request<any>(`/meals/${mealId}/components/${componentId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  removeMealComponent: (mealId: string, componentId: string) =>
+    request<void>(`/meals/${mealId}/components/${componentId}`, { method: 'DELETE' }),
+
   // Orders
   getOrders: (startDate?: string, endDate?: string) => {
     const params = new URLSearchParams();
