@@ -22,6 +22,12 @@ export class ProductionPlansController {
     return this.service.findAll();
   }
 
+  /** Must be declared before :id to avoid "current" being treated as a UUID */
+  @Get('current')
+  getCurrent() {
+    return this.service.getCurrentPlan();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);

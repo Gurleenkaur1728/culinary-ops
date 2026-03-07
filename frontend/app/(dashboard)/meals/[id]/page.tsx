@@ -198,16 +198,30 @@ export default function MealDetailPage() {
   function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      alert('Image is too large. Please use an image under 2MB.');
-      e.target.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setImageUrl(ev.target?.result as string);
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      // Resize to max 800px on the longest edge, compress as JPEG at 70%
+      const MAX = 800;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
+        else { width = Math.round((width * MAX) / height); height = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      setImageUrl(canvas.toDataURL('image/jpeg', 0.7));
     };
-    reader.readAsDataURL(file);
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      alert('Could not load image. Please try a different file.');
+    };
+    img.src = objectUrl;
   }
 
   function addAllergen() {
@@ -289,7 +303,7 @@ export default function MealDetailPage() {
                 <div className="text-center">
                   <p className="text-3xl mb-1">📷</p>
                   <p className="text-xs text-brand-500 font-medium">Click to upload image</p>
-                  <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, WebP · max 2MB</p>
+                  <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, WebP · auto-compressed</p>
                 </div>
               )}
             </div>

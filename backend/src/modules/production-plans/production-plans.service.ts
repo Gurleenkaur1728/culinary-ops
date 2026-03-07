@@ -106,6 +106,35 @@ export class ProductionPlansService {
     return this.prisma.productionPlan.delete({ where: { id } });
   }
 
+  /** Return the production plan whose week_start falls in the current ISO week (Mon–Sun) */
+  async getCurrentPlan() {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - daysFromMonday);
+    monday.setHours(0, 0, 0, 0);
+
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+
+    const plan = await this.prisma.productionPlan.findFirst({
+      where: { week_start: { gte: monday, lt: nextMonday } },
+      include: {
+        items: {
+          select: {
+            id: true,
+            quantity: true,
+            meal: { select: { id: true, display_name: true, category: true } },
+          },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return plan; // may be null if no plan exists for this week
+  }
+
   /** Sub-recipe prep sheet: aggregated sub-recipe quantities, grouped by station */
   async getSubRecipeReport(id: string) {
     const plan = await this.prisma.productionPlan.findUnique({
@@ -129,6 +158,23 @@ export class ProductionPlansService {
                         instructions: true,
                         base_yield_weight: true,
                         base_yield_unit: true,
+                        // Include the sub-recipe's own components for ingredient breakdown
+                        components: {
+                          include: {
+                            ingredient: {
+                              select: {
+                                id: true,
+                                internal_name: true,
+                                display_name: true,
+                                sku: true,
+                                unit: true,
+                              },
+                            },
+                            child_sub_recipe: {
+                              select: { id: true, name: true, sub_recipe_code: true },
+                            },
+                          },
+                        },
                       },
                     },
                   },
@@ -167,20 +213,54 @@ export class ProductionPlansService {
       }
     }
 
-    const rows = Array.from(totals.values()).map(({ subRecipe, total, unit, mealBreakdown }) => ({
-      id: subRecipe.id,
-      name: subRecipe.name,
-      sub_recipe_code: subRecipe.sub_recipe_code,
-      station_tag: subRecipe.station_tag,
-      production_day: subRecipe.production_day,
-      priority: subRecipe.priority,
-      instructions: subRecipe.instructions,
-      base_yield_weight: subRecipe.base_yield_weight,
-      base_yield_unit: subRecipe.base_yield_unit,
-      total_quantity: parseFloat(total.toFixed(3)),
-      unit,
-      meal_breakdown: mealBreakdown,
-    }));
+    const rows = Array.from(totals.values()).map(({ subRecipe, total, unit, mealBreakdown }) => {
+      // Scale factor: how many "batches" of this sub-recipe we need
+      const scale = subRecipe.base_yield_weight > 0 ? total / subRecipe.base_yield_weight : 1;
+
+      // Build ingredient breakdown scaled to total quantity needed
+      const ingredients = (subRecipe.components ?? []).map((comp: any) => {
+        const scaledQty = parseFloat((comp.quantity * scale).toFixed(3));
+        if (comp.ingredient) {
+          return {
+            id: comp.ingredient.id,
+            name: comp.ingredient.internal_name,
+            display_name: comp.ingredient.display_name,
+            sku: comp.ingredient.sku,
+            quantity: scaledQty,
+            unit: comp.unit,
+            type: 'ingredient' as const,
+          };
+        } else if (comp.child_sub_recipe) {
+          return {
+            id: comp.child_sub_recipe.id,
+            name: comp.child_sub_recipe.name,
+            display_name: comp.child_sub_recipe.name,
+            sku: comp.child_sub_recipe.sub_recipe_code,
+            quantity: scaledQty,
+            unit: comp.unit,
+            type: 'sub_recipe' as const,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      return {
+        id: subRecipe.id,
+        name: subRecipe.name,
+        sub_recipe_code: subRecipe.sub_recipe_code,
+        station_tag: subRecipe.station_tag,
+        production_day: subRecipe.production_day,
+        priority: subRecipe.priority,
+        instructions: subRecipe.instructions,
+        base_yield_weight: subRecipe.base_yield_weight,
+        base_yield_unit: subRecipe.base_yield_unit,
+        total_quantity: parseFloat(total.toFixed(3)),
+        scale_factor: parseFloat(scale.toFixed(3)),
+        unit,
+        meal_breakdown: mealBreakdown,
+        ingredients,
+      };
+    });
 
     // Sort by station then priority
     rows.sort((a, b) => {

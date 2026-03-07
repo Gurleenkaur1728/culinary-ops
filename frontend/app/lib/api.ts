@@ -193,6 +193,9 @@ export const api = {
 
   getProductionPlanShoppingList: (id: string) =>
     request<PlanShoppingListReport>(`/production-plans/${id}/shopping-list`),
+
+  getCurrentProductionPlan: () =>
+    request<ProductionPlan | null>('/production-plans/current'),
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -457,6 +460,16 @@ export interface ProductionPlanDetail {
   items: ProductionPlanItem[];
 }
 
+export interface PlanSubRecipeIngredient {
+  id: string;
+  name: string;
+  display_name: string;
+  sku: string;
+  quantity: number;
+  unit: string;
+  type: 'ingredient' | 'sub_recipe';
+}
+
 export interface PlanSubRecipeRow {
   id: string;
   name: string;
@@ -468,8 +481,10 @@ export interface PlanSubRecipeRow {
   base_yield_weight: number;
   base_yield_unit: string;
   total_quantity: number;
+  scale_factor: number;
   unit: string;
   meal_breakdown: { meal: string; qty: number }[];
+  ingredients: PlanSubRecipeIngredient[];
 }
 
 export interface PlanSubRecipeReport {
