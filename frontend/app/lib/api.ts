@@ -80,6 +80,8 @@ export const api = {
 
   getStationTags: () => request<string[]>('/sub-recipes/station-tags'),
 
+  getProductionDays: () => request<string[]>('/sub-recipes/production-days'),
+
   createSubRecipe: (data: CreateSubRecipeData) =>
     request<SubRecipe>('/sub-recipes', {
       method: 'POST',
@@ -94,6 +96,29 @@ export const api = {
 
   deleteSubRecipe: (id: string) =>
     request<void>(`/sub-recipes/${id}`, { method: 'DELETE' }),
+
+  // Sub-recipe individual component CRUD
+  addSubRecipeComponent: (
+    subRecipeId: string,
+    data: { ingredient_id?: string; child_sub_recipe_id?: string; quantity: number; unit: string },
+  ) =>
+    request<any>(`/sub-recipes/${subRecipeId}/components`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateSubRecipeComponent: (
+    subRecipeId: string,
+    componentId: string,
+    data: { quantity?: number; unit?: string },
+  ) =>
+    request<any>(`/sub-recipes/${subRecipeId}/components/${componentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  removeSubRecipeComponent: (subRecipeId: string, componentId: string) =>
+    request<void>(`/sub-recipes/${subRecipeId}/components/${componentId}`, { method: 'DELETE' }),
 
   // Meals
   getMeals: () => request<MealRecipe[]>('/meals'),
