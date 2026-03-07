@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CostEngineService } from '../../services/cost-engine.service';
-import { CreateMealDto, UpdateMealDto } from './dto/meal.dto';
+import { CreateMealDto, UpdateMealDto, AddMealComponentDto, UpdateMealComponentDto } from './dto/meal.dto';
 
 @Injectable()
 export class MealsService {
@@ -181,6 +181,64 @@ export class MealsService {
       },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
+  }
+
+  /** Add a single component to an existing meal */
+  async addComponent(mealId: string, dto: AddMealComponentDto) {
+    await this.findOne(mealId);
+    if (!dto.ingredient_id && !dto.sub_recipe_id) {
+      throw new BadRequestException('Component must have ingredient_id or sub_recipe_id');
+    }
+    if (dto.ingredient_id && dto.sub_recipe_id) {
+      throw new BadRequestException('Component cannot have both ingredient_id and sub_recipe_id');
+    }
+    const component = await this.prisma.mealComponent.create({
+      data: {
+        meal_id: mealId,
+        ingredient_id: dto.ingredient_id ?? null,
+        sub_recipe_id: dto.sub_recipe_id ?? null,
+        quantity: dto.quantity,
+        unit: dto.unit,
+      },
+      include: {
+        ingredient: { select: { id: true, internal_name: true, sku: true, cost_per_unit: true } },
+        sub_recipe: { select: { id: true, name: true, sub_recipe_code: true, station_tag: true, computed_cost: true } },
+      },
+    });
+    const cost = await this.costEngine.calculateMealCost(mealId);
+    await this.prisma.mealRecipe.update({ where: { id: mealId }, data: { computed_cost: cost } });
+    return component;
+  }
+
+  /** Update a component's quantity/unit */
+  async updateComponent(mealId: string, componentId: string, dto: UpdateMealComponentDto) {
+    const component = await this.prisma.mealComponent.findFirst({
+      where: { id: componentId, meal_id: mealId },
+    });
+    if (!component) throw new NotFoundException('Component not found');
+    const updated = await this.prisma.mealComponent.update({
+      where: { id: componentId },
+      data: dto,
+      include: {
+        ingredient: { select: { id: true, internal_name: true, sku: true, cost_per_unit: true } },
+        sub_recipe: { select: { id: true, name: true, sub_recipe_code: true, station_tag: true, computed_cost: true } },
+      },
+    });
+    const cost = await this.costEngine.calculateMealCost(mealId);
+    await this.prisma.mealRecipe.update({ where: { id: mealId }, data: { computed_cost: cost } });
+    return updated;
+  }
+
+  /** Remove a single component */
+  async removeComponent(mealId: string, componentId: string) {
+    const component = await this.prisma.mealComponent.findFirst({
+      where: { id: componentId, meal_id: mealId },
+    });
+    if (!component) throw new NotFoundException('Component not found');
+    await this.prisma.mealComponent.delete({ where: { id: componentId } });
+    const cost = await this.costEngine.calculateMealCost(mealId);
+    await this.prisma.mealRecipe.update({ where: { id: mealId }, data: { computed_cost: cost } });
+    return { success: true };
   }
 
   /** All unique categories */

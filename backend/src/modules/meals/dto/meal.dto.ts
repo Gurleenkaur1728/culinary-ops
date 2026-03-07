@@ -28,6 +28,34 @@ export class MealComponentDto {
   unit: string;
 }
 
+export class AddMealComponentDto {
+  @IsOptional()
+  @IsUUID()
+  ingredient_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  sub_recipe_id?: string;
+
+  @IsNumber()
+  @Min(0)
+  quantity: number;
+
+  @IsString()
+  unit: string;
+}
+
+export class UpdateMealComponentDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  unit?: string;
+}
+
 export class CreateMealDto {
   @IsString()
   name: string;
@@ -70,6 +98,19 @@ export class CreateMealDto {
   @IsOptional()
   @IsString()
   cooking_instructions?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  image_url?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  net_weight_kg?: number;
 
   @IsOptional()
   @IsBoolean()

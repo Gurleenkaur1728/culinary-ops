@@ -121,10 +121,22 @@ export default function MealsPage() {
                 const sell = meal.pricing_override ?? 0;
                 const profit = sell > 0 && cost > 0 ? sell - cost : null;
                 const margin = profit !== null && sell > 0 ? (profit / sell) * 100 : null;
+                const allergens = (meal as any).allergen_tags as string[] ?? [];
                 return (
-                  <tr key={meal.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{meal.display_name}</td>
+                  <tr key={meal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => window.location.href = `/meals/${meal.id}`}>
                     <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{meal.display_name}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{meal.name}</div>
+                      {allergens.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {allergens.slice(0, 3).map((a) => (
+                            <span key={a} className="px-1.5 py-0 bg-red-50 text-red-600 rounded text-xs">{a}</span>
+                          ))}
+                          {allergens.length > 3 && <span className="text-xs text-gray-400">+{allergens.length - 3}</span>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       {(meal as any).category ? (
                         <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded-md text-xs">{(meal as any).category}</span>
                       ) : <span className="text-gray-400">—</span>}
@@ -143,10 +155,10 @@ export default function MealsPage() {
                         </span>
                       ) : <span className="text-gray-400">—</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-2">
                         <Link href={`/meals/${meal.id}`} className="text-xs text-brand-600 hover:underline">Edit</Link>
-                        <button onClick={() => handleDelete(meal.id)} className="text-xs text-red-500 hover:underline">Delete</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(meal.id); }} className="text-xs text-red-500 hover:underline">Delete</button>
                       </div>
                     </td>
                   </tr>

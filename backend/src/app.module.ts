@@ -7,6 +7,7 @@ import { SubRecipesModule } from './modules/sub-recipes/sub-recipes.module';
 import { MealsModule } from './modules/meals/meals.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductionModule } from './modules/production/production.module';
+import { ProductionPlansModule } from './modules/production-plans/production-plans.module';
 import { ShopifyWebhookController } from './webhooks/shopify.controller';
 import { CostEngineService } from './services/cost-engine.service';
 import { ProductionEngineService } from './services/production-engine.service';
@@ -21,6 +22,7 @@ import { ProductionEngineService } from './services/production-engine.service';
     MealsModule,
     OrdersModule,
     ProductionModule,
+    ProductionPlansModule,
   ],
   controllers: [ShopifyWebhookController],
   providers: [CostEngineService, ProductionEngineService],
