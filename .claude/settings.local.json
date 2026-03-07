@@ -24,7 +24,15 @@
       "Bash(cat \"D:/culinary-ops/.claude/worktrees/loving-sanderson/frontend/app/\\(dashboard\\)/meals/page.tsx\")",
       "Bash(python -:*)",
       "Bash(git add backend/src/modules/meals/meals.controller.ts backend/src/modules/meals/meals.service.ts backend/src/modules/sub-recipes/sub-recipes.controller.ts backend/src/modules/sub-recipes/sub-recipes.service.ts frontend/app/lib/api.ts frontend/app/\\\\\\(dashboard\\\\\\)/meals/page.tsx frontend/app/\\\\\\(dashboard\\\\\\)/reports/cooking/page.tsx frontend/app/\\\\\\(dashboard\\\\\\)/reports/shopping-list/page.tsx frontend/app/\\\\\\(dashboard\\\\\\)/reports/sub-recipes/page.tsx frontend/app/\\\\\\(dashboard\\\\\\)/sub-recipes/page.tsx)",
-      "Bash(git add .claude/settings.local.json)"
+      "Bash(git add .claude/settings.local.json)",
+      "Bash(python3 -c \":*)",
+      "Bash(node -e \":*)",
+      "Bash(find \"D:\\\\culinary-ops\\\\.claude\\\\worktrees\\\\loving-sanderson/frontend/app/\\(dashboard\\)\" -type f -name \"*.tsx\")",
+      "Bash(git add backend/prisma/schema.prisma backend/src/app.module.ts backend/src/modules/production-plans/ frontend/app/lib/api.ts \"frontend/app/\\(dashboard\\)/layout.tsx\" \"frontend/app/\\(dashboard\\)/production/\")",
+      "Bash(node -e \"require\\(''fs''\\).writeFileSync\\(''backend/src/modules/meals/dto/meal.dto.ts'', require\\(''fs''\\).readFileSync\\(''backend/src/modules/meals/dto/meal.dto.ts'', ''utf8''\\)\\)\")",
+      "Bash(git add backend/prisma/schema.prisma backend/src/modules/meals/dto/meal.dto.ts backend/src/modules/meals/meals.service.ts backend/src/modules/meals/meals.controller.ts frontend/app/lib/api.ts \"frontend/app/\\(dashboard\\)/meals/page.tsx\" \"frontend/app/\\(dashboard\\)/meals/[id]/page.tsx\")",
+      "Bash(git add backend/src/modules/meals/meals.service.ts \"frontend/app/\\(dashboard\\)/meals/[id]/page.tsx\")",
+      "Bash(git add backend/src/main.ts backend/src/modules/production-plans/production-plans.controller.ts backend/src/modules/production-plans/production-plans.service.ts frontend/app/\\\\\\(dashboard\\\\\\)/dashboard/page.tsx \"frontend/app/\\(dashboard\\)/meals/[id]/page.tsx\" \"frontend/app/\\(dashboard\\)/production/[id]/page.tsx\" frontend/app/lib/api.ts)"
     ]
   }
 }
