@@ -221,6 +221,16 @@ export const api = {
 
   getCurrentProductionPlan: () =>
     request<ProductionPlan | null>('/production-plans/current'),
+
+  // Inventory
+  getInventoryReport: (planId: string) =>
+    request<InventoryReport>(`/ingredients/inventory?plan_id=${planId}`),
+
+  updateIngredientStockBulk: (updates: { id: string; stock: number }[]) =>
+    request<{ updated: number }>('/ingredients/stock-bulk', {
+      method: 'PATCH',
+      body: JSON.stringify({ updates }),
+    }),
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -236,6 +246,8 @@ export interface Ingredient {
   trim_percentage: number;
   base_weight: number;
   cost_per_unit: number;
+  unit: string;
+  stock: number;
   allergen_tags: string[];
   created_at: string;
   updated_at: string;
@@ -538,4 +550,35 @@ export interface PlanShoppingListReport {
   week_label: string;
   grouped_by_category: Record<string, PlanIngredientRow[]>;
   total_ingredients: number;
+}
+
+// ─── Inventory types ──────────────────────────────────────────────────────────
+
+export interface InventoryRow {
+  id: string;
+  internal_name: string;
+  display_name: string;
+  sku: string;
+  category: string;
+  supplier_name: string | null;
+  location: string | null;
+  unit: string;
+  base_weight: number;
+  cost_per_unit: number;
+  stock: number;
+  need: number;
+  to_order: number;
+  cases_to_order: number;
+  case_price: number;
+  total_cost: number;
+  total_cost_buffered: number;
+}
+
+export interface InventoryReport {
+  plan_id: string;
+  week_label: string;
+  grouped_by_category: Record<string, InventoryRow[]>;
+  total_cost_all: number;
+  total_cost_buffered_all: number;
+  items_needing_order: number;
 }

@@ -27,6 +27,7 @@ model Ingredient {
   base_weight    Float    @default(1)
   cost_per_unit  Float    @default(0)
   unit           String   @default("Kgs")
+  stock          Float    @default(0)       // current on-hand quantity (in ingredient's unit)
   allergen_tags  String[]
   benefits       String[]
   is_active      Boolean  @default(true)

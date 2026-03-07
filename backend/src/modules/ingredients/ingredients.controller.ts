@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -12,7 +13,11 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { IngredientsService } from './ingredients.service';
-import { CreateIngredientDto, UpdateIngredientDto } from './dto/ingredient.dto';
+import {
+  CreateIngredientDto,
+  UpdateIngredientDto,
+  UpdateStockBulkDto,
+} from './dto/ingredient.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ingredients')
@@ -28,6 +33,20 @@ export class IngredientsController {
   getCategories() {
     return this.service.getCategories();
   }
+
+  // ── Inventory endpoints (must be before :id to avoid route conflicts) ────
+
+  @Get('inventory')
+  getInventoryReport(@Query('plan_id') planId: string) {
+    return this.service.getInventoryReport(planId);
+  }
+
+  @Patch('stock-bulk')
+  updateStockBulk(@Body() dto: UpdateStockBulkDto) {
+    return this.service.updateStockBulk(dto);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {

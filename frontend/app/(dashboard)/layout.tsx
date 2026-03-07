@@ -7,6 +7,7 @@ import Link from 'next/link';
 const PRIMARY_NAV = [
   { href: '/dashboard',   label: 'Dashboard',        icon: '⊞' },
   { href: '/production',  label: 'Production Plans',  icon: '📅' },
+  { href: '/inventory',   label: 'Inventory',         icon: '📦' },
   { href: '/meals',       label: 'Meal Recipes',      icon: '🍽' },
   { href: '/sub-recipes', label: 'Sub-Recipes',       icon: '🍲' },
   { href: '/ingredients', label: 'Ingredients',       icon: '🥦' },
