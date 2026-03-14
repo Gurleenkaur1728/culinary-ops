@@ -76,7 +76,7 @@ function extractNameFromDesc(shortDesc, fullDesc) {
 // ─── Map WC category string to short internal category ───────────────────────
 function parseCategoryFromWC(catStr) {
   if (!catStr) return null;
-  if (catStr.includes('> Veg')) return 'Veg';
+  if (catStr.includes('> Veg') || catStr.includes('> Plant-Based')) return 'Veg';
   if (catStr.includes('> Meat')) return 'Meat';
   if (catStr.includes('Breakfast')) return '*Breakie';
   if (catStr.includes('Marketplace') || catStr.includes('Snack')) return 'Marketplace';
