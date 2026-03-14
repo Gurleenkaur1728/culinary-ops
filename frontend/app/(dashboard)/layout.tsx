@@ -65,10 +65,10 @@ export default function DashboardLayout({
       <aside className="w-60 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo */}
         <div className="h-14 flex items-center px-5 border-b border-gray-200">
-          <span className="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center text-white font-bold text-sm mr-2.5">
-            C
+          <span className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-black text-xs mr-2.5 tracking-tight shadow-sm">
+            BD
           </span>
-          <span className="font-semibold text-gray-900 text-sm">Culinary Ops</span>
+          <span className="font-semibold text-gray-900 text-sm">BetterDay Kitchen</span>
         </div>
 
         {/* Navigation */}

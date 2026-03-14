@@ -256,7 +256,7 @@ export default function ProductionPlanPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Meal', 'Category', 'Allergens', 'Quantity', ''].map((h) => (
+                  {['Meal', 'Category', 'Allergens', 'Cost/portion', 'Quantity', 'Line Cost', ''].map((h) => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -269,12 +269,16 @@ export default function ProductionPlanPage() {
               <tbody className="divide-y divide-gray-100">
                 {plan.items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
+                    <td colSpan={7} className="px-4 py-10 text-center text-gray-400">
                       No meals added yet
                     </td>
                   </tr>
                 ) : (
-                  plan.items.map((item) => (
+                  plan.items.map((item) => {
+                    const qty = quantities[item.meal_id] ?? 0;
+                    const cost = item.meal.computed_cost ?? 0;
+                    const lineCost = qty * cost;
+                    return (
                     <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">{item.meal.display_name}</td>
                       <td className="px-4 py-3">
@@ -300,6 +304,15 @@ export default function ProductionPlanPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
+                        {cost > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-800 rounded font-semibold text-xs">
+                            💰 ${cost.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-xs">not set</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <input
                           type="number"
                           min={0}
@@ -314,6 +327,13 @@ export default function ProductionPlanPage() {
                         />
                       </td>
                       <td className="px-4 py-3">
+                        {lineCost > 0 ? (
+                          <span className="font-semibold text-gray-800">${lineCost.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => removeMeal(item.meal_id)}
                           className="text-xs text-red-400 hover:text-red-600"
@@ -322,9 +342,29 @@ export default function ProductionPlanPage() {
                         </button>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
+              {plan.items.length > 0 && (() => {
+                const totalCost = plan.items.reduce((sum, item) => {
+                  const qty = quantities[item.meal_id] ?? 0;
+                  return sum + qty * (item.meal.computed_cost ?? 0);
+                }, 0);
+                return totalCost > 0 ? (
+                  <tfoot>
+                    <tr className="bg-purple-50 border-t-2 border-purple-200">
+                      <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-purple-900">
+                        💰 Total Production Cost
+                      </td>
+                      <td className="px-4 py-3 text-base font-bold text-purple-900">
+                        ${totalCost.toFixed(2)}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                ) : null;
+              })()}
             </table>
           </div>
 

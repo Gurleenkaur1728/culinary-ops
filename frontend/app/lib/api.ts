@@ -247,7 +247,10 @@ export const api = {
     request<{ message: string }>(`/kitchen-staff/${id}`, { method: 'DELETE' }),
 
   // Kitchen Portal (kitchen / admin)
-  getKitchenBoard: () => request<KitchenBoardResponse>('/kitchen-portal/board'),
+  getKitchenBoard: (station?: string) =>
+    request<KitchenBoardResponse>(
+      `/kitchen-portal/board${station ? `?station=${encodeURIComponent(station)}` : ''}`,
+    ),
 
   upsertProductionLog: (data: {
     plan_id: string;
@@ -369,9 +372,17 @@ export interface MealRecipe {
   id: string;
   name: string;
   display_name: string;
+  category: string | null;
   final_yield_weight: number;
   pricing_override: number | null;
   computed_cost: number;
+  short_description: string | null;
+  description: string | null;
+  image_url: string | null;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
   created_at: string;
   updated_at: string;
   components: MealComponent[];

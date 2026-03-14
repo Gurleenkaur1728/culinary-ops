@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   Request,
   UseGuards,
   ParseUUIDPipe,
@@ -26,10 +27,12 @@ import {
 export class KitchenPortalController {
   constructor(private readonly service: KitchenPortalService) {}
 
-  /** GET /api/kitchen-portal/board — current week's tasks for user's station */
+  /** GET /api/kitchen-portal/board — current week's tasks for a station
+   *  ?station=Veg+Station  (optional — defaults to user's assigned station)
+   */
   @Get('board')
-  getBoard(@Request() req: any) {
-    const station = req.user.station ?? '';
+  getBoard(@Request() req: any, @Query('station') stationOverride?: string) {
+    const station = stationOverride || req.user.station || '';
     return this.service.getBoard(req.user.id, station);
   }
 

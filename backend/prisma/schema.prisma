@@ -104,8 +104,13 @@ model MealRecipe {
   packaging_instructions String?
   cooking_instructions   String?
   description            String?
+  short_description      String?
   image_url              String?
   net_weight_kg          Float    @default(0)
+  calories               Int?
+  protein_g              Float?
+  carbs_g                Float?
+  fat_g                  Float?
   is_active              Boolean  @default(true)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt

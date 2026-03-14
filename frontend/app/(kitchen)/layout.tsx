@@ -40,8 +40,8 @@ export default function KitchenLayout({ children }: { children: React.ReactNode 
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           {/* Logo + station */}
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
-              C
+            <span className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center text-white font-black text-xs tracking-tight shadow-sm">
+              BD
             </span>
             <div>
               <div className="text-sm font-semibold text-gray-900 leading-tight">

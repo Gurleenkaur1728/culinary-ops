@@ -30,14 +30,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-50 to-gray-100">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg border border-gray-200 p-8">
         <div className="mb-8 text-center">
-          <div className="w-12 h-12 bg-brand-500 rounded-xl mx-auto mb-4 flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">C</span>
+          <div className="w-16 h-16 bg-brand-500 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-md">
+            <span className="text-white text-xl font-black tracking-tight">BD</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Culinary Ops</h1>
-          <p className="text-sm text-gray-500 mt-1">Internal operations system</p>
+          <h1 className="text-2xl font-bold text-gray-900">BetterDay Kitchen</h1>
+          <p className="text-sm text-gray-500 mt-1">Production operations system</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

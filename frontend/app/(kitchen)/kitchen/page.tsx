@@ -3,15 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, KitchenTask, KitchenBoardResponse, StationRequest, PlanSubRecipeIngredient } from '../../lib/api';
 
-const STATIONS = [
-  'Veg Station',
-  'Protein Station',
-  'Oven Station',
-  'Sauce Station',
-  'Breakfast + Sides Station',
-  'Packaging Station',
-];
-
 type LogStatus = 'not_started' | 'in_progress' | 'done';
 
 interface LogModal {
@@ -40,6 +31,11 @@ export default function KitchenBoardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Station filter
+  const [userStation, setUserStation] = useState('');
+  const [selectedStation, setSelectedStation] = useState('');
+  const [allStations, setAllStations] = useState<string[]>([]);
+
   // Modal state
   const [logModal, setLogModal] = useState<LogModal | null>(null);
   const [feedbackModal, setFeedbackModal] = useState<FeedbackModal | null>(null);
@@ -50,10 +46,34 @@ export default function KitchenBoardPage() {
   const [expandedIngredients, setExpandedIngredients] = useState<Set<string>>(new Set());
   const [expandedInstructions, setExpandedInstructions] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
+  // Load station list once
+  useEffect(() => {
+    const storedStation = localStorage.getItem('user_station') ?? '';
+    setUserStation(storedStation);
+    setSelectedStation(storedStation);
+    // Fetch all available station tags dynamically
+    api.getStationTags().then((tags) => {
+      // Sort: user's station first, then alphabetically
+      const sorted = [...tags].sort((a, b) => {
+        if (a === storedStation) return -1;
+        if (b === storedStation) return 1;
+        return a.localeCompare(b);
+      });
+      setAllStations(sorted);
+    }).catch(() => {
+      // fallback to built-in list
+      setAllStations([
+        'Veg Station', 'Protein Station', 'Oven Station',
+        'Sauce Station', 'Breakfast + Sides Station', 'Packaging Station',
+      ]);
+    });
+  }, []);
+
+  const load = useCallback(async (station: string) => {
     try {
       setError('');
-      const data = await api.getKitchenBoard();
+      setLoading(true);
+      const data = await api.getKitchenBoard(station || undefined);
       setBoard(data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load board');
@@ -62,7 +82,12 @@ export default function KitchenBoardPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Reload when selectedStation changes (and is set)
+  useEffect(() => {
+    if (selectedStation !== undefined) {
+      load(selectedStation);
+    }
+  }, [selectedStation, load]);
 
   // ─── Status update ────────────────────────────────────────────────────────
   async function handleStatusChange(task: KitchenTask, status: LogStatus) {
@@ -214,9 +239,9 @@ export default function KitchenBoardPage() {
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <div className="w-10 h-10 bg-brand-500 rounded-xl mx-auto mb-3 flex items-center justify-center animate-pulse">
-            <span className="text-white font-bold">C</span>
+            <span className="text-white font-black text-xs tracking-tight">BD</span>
           </div>
-          <p className="text-sm text-gray-500">Loading your board...</p>
+          <p className="text-sm text-gray-500">Loading tasks...</p>
         </div>
       </div>
     );
@@ -226,35 +251,67 @@ export default function KitchenBoardPage() {
     return (
       <div className="text-center py-20">
         <p className="text-red-500 text-sm">{error}</p>
-        <button onClick={load} className="mt-3 text-brand-600 text-sm underline">Retry</button>
+        <button onClick={() => load(selectedStation)} className="mt-3 text-brand-600 text-sm underline">Retry</button>
       </div>
     );
   }
 
   if (!board?.plan) {
     return (
-      <div className="text-center py-20">
-        <p className="text-4xl mb-3">📅</p>
-        <h2 className="text-lg font-semibold text-gray-700">No active production plan</h2>
-        <p className="text-sm text-gray-500 mt-1">Ask your admin to create a plan for this week.</p>
+      <div className="space-y-4">
+        {/* Station filter even when no plan */}
+        {allStations.length > 0 && (
+          <StationFilter
+            allStations={allStations}
+            selectedStation={selectedStation}
+            userStation={userStation}
+            onChange={setSelectedStation}
+          />
+        )}
+        <div className="text-center py-20">
+          <p className="text-4xl mb-3">📅</p>
+          <h2 className="text-lg font-semibold text-gray-700">No active production plan</h2>
+          <p className="text-sm text-gray-500 mt-1">Ask your admin to create a plan for this week.</p>
+        </div>
       </div>
     );
   }
 
-  const pendingCount = board.pendingRequests.filter((r) => r.status === 'pending').length;
+  const doneCount = board.tasks.filter((t) => t.log.status === 'done').length;
+  const progress = board.tasks.length > 0 ? Math.round((doneCount / board.tasks.length) * 100) : 0;
 
   return (
     <div className="space-y-4">
-      {/* Week label */}
-      <div className="flex items-center justify-between">
+      {/* Week label + station filter */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Your Tasks</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            {selectedStation || 'All Tasks'}
+          </h1>
           <p className="text-sm text-gray-500">{board.plan.week_label}</p>
         </div>
-        <div className="text-sm text-gray-500">
-          {board.tasks.filter((t) => t.log.status === 'done').length}/{board.tasks.length} done
+        <div className="text-right">
+          <div className="text-sm font-semibold text-gray-700">{doneCount}/{board.tasks.length} done</div>
+          {board.tasks.length > 0 && (
+            <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1.5 ml-auto">
+              <div
+                className="h-1.5 bg-brand-500 rounded-full transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Station selector */}
+      {allStations.length > 0 && (
+        <StationFilter
+          allStations={allStations}
+          selectedStation={selectedStation}
+          userStation={userStation}
+          onChange={setSelectedStation}
+        />
+      )}
 
       {/* Pending incoming requests banner */}
       {board.pendingRequests.length > 0 && (
@@ -312,7 +369,7 @@ export default function KitchenBoardPage() {
       {board.tasks.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-4xl mb-3">✅</p>
-          <p className="text-gray-500 text-sm">No tasks assigned to your station this week.</p>
+          <p className="text-gray-500 text-sm">No tasks for {selectedStation || 'this station'} this week.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -338,6 +395,11 @@ export default function KitchenBoardPage() {
                         <span className="text-xs font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                           P{task.priority}
                         </span>
+                        {task.station_tag && task.station_tag !== selectedStation && (
+                          <span className="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-medium">
+                            {task.station_tag}
+                          </span>
+                        )}
                         <h3 className={`text-sm font-semibold ${isDone ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                           {task.display_name || task.name}
                         </h3>
@@ -355,7 +417,7 @@ export default function KitchenBoardPage() {
                   </div>
 
                   {/* Expandable sections */}
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-3 flex-wrap">
                     {task.ingredients.length > 0 && (
                       <button
                         onClick={() => toggleIngredients(task.sub_recipe_id)}
@@ -591,7 +653,7 @@ export default function KitchenBoardPage() {
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">Select station...</option>
-                  {STATIONS.map((s) => (
+                  {allStations.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
@@ -655,6 +717,52 @@ export default function KitchenBoardPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Station Filter Component ─────────────────────────────────────────────────
+function StationFilter({
+  allStations,
+  selectedStation,
+  userStation,
+  onChange,
+}: {
+  allStations: string[];
+  selectedStation: string;
+  userStation: string;
+  onChange: (s: string) => void;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-3">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Station</span>
+        {selectedStation !== userStation && userStation && (
+          <button
+            onClick={() => onChange(userStation)}
+            className="text-xs text-brand-600 underline"
+          >
+            Back to my station
+          </button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {allStations.map((s) => (
+          <button
+            key={s}
+            onClick={() => onChange(s)}
+            className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+              s === selectedStation
+                ? 'bg-brand-500 text-white border-brand-500'
+                : s === userStation
+                ? 'bg-brand-50 text-brand-700 border-brand-200'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300 hover:text-brand-700'
+            }`}
+          >
+            {s === userStation && s !== selectedStation ? `★ ${s}` : s}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
