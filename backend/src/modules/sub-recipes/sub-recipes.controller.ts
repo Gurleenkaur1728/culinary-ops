@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -11,10 +12,18 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { SubRecipesService } from './sub-recipes.service';
-import { CreateSubRecipeDto, UpdateSubRecipeDto } from './dto/sub-recipe.dto';
+import {
+  CreateSubRecipeDto,
+  UpdateSubRecipeDto,
+  AddSubRecipeComponentDto,
+  UpdateSubRecipeComponentDto,
+} from './dto/sub-recipe.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'staff')
 @Controller('sub-recipes')
 export class SubRecipesController {
   constructor(private readonly service: SubRecipesService) {}
@@ -63,5 +72,32 @@ export class SubRecipesController {
   @Delete(':id')
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
+  }
+
+  // ── Individual component CRUD ─────────────────────────────────────────────
+
+  @Post(':id/components')
+  addComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddSubRecipeComponentDto,
+  ) {
+    return this.service.addComponent(id, dto);
+  }
+
+  @Patch(':id/components/:componentId')
+  updateComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('componentId') componentId: string,
+    @Body() dto: UpdateSubRecipeComponentDto,
+  ) {
+    return this.service.updateComponent(id, componentId, dto);
+  }
+
+  @Delete(':id/components/:componentId')
+  removeComponent(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('componentId') componentId: string,
+  ) {
+    return this.service.removeComponent(id, componentId);
   }
 }

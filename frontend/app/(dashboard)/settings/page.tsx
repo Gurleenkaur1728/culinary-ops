@@ -11,7 +11,7 @@ export default function SettingsPage() {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">Application:</span>
-              <span className="font-medium text-gray-900">Culinary Ops v1.0</span>
+              <span className="font-medium text-gray-900">BetterDay Kitchen v1.0</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Environment:</span>

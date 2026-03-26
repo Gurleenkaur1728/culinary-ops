@@ -7,12 +7,17 @@ import {
   Body,
   Param,
   UseGuards,
+  ParseBoolPipe,
+  Query,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { ProductionPlansService } from './production-plans.service';
 import { CreateProductionPlanDto, UpdateProductionPlanDto } from './dto/production-plan.dto';
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin', 'staff')
 @Controller('production-plans')
 export class ProductionPlansController {
   constructor(private readonly service: ProductionPlansService) {}
@@ -46,6 +51,11 @@ export class ProductionPlansController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
+  }
+
+  @Patch(':id/publish')
+  publish(@Param('id') id: string, @Body('publish') publish: boolean) {
+    return this.service.publishToKitchen(id, publish);
   }
 
   @Get(':id/sub-recipe-report')

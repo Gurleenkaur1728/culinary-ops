@@ -10,7 +10,8 @@ export default function RootPage() {
     // Check if user has token, redirect accordingly
     const token = localStorage.getItem('access_token');
     if (token) {
-      router.replace('/dashboard');
+      const role = localStorage.getItem('user_role');
+      router.replace(role === 'kitchen' ? '/kitchen' : '/dashboard');
     } else {
       router.replace('/login');
     }
@@ -19,8 +20,8 @@ export default function RootPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <div className="w-16 h-16 bg-brand-500 rounded-xl mx-auto mb-4 flex items-center justify-center animate-pulse">
-          <span className="text-white text-3xl font-bold">C</span>
+        <div className="w-16 h-16 bg-bd-yellow rounded-2xl mx-auto mb-4 flex items-center justify-center animate-pulse">
+          <span className="text-brand-700 text-xl font-black tracking-tight">BD</span>
         </div>
         <p className="text-sm text-gray-500">Loading...</p>
       </div>

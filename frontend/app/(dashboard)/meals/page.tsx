@@ -125,25 +125,46 @@ export default function MealsPage() {
                 return (
                   <tr key={meal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => window.location.href = `/meals/${meal.id}`}>
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{meal.display_name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{meal.name}</div>
-                      {allergens.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {allergens.slice(0, 3).map((a) => (
-                            <span key={a} className="px-1.5 py-0 bg-red-50 text-red-600 rounded text-xs">{a}</span>
-                          ))}
-                          {allergens.length > 3 && <span className="text-xs text-gray-400">+{allergens.length - 3}</span>}
+                      <div className="flex items-start gap-2">
+                        {meal.image_url && (
+                          <img src={meal.image_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 mt-0.5" />
+                        )}
+                        <div>
+                          <div className="font-medium text-gray-900">{meal.display_name}</div>
+                          {meal.short_description && (
+                            <div className="text-xs text-gray-400 mt-0.5 line-clamp-1">{meal.short_description}</div>
+                          )}
+                          {meal.calories != null && (
+                            <div className="flex gap-1.5 mt-1 flex-wrap">
+                              <span className="px-1.5 py-0 bg-amber-50 text-amber-700 rounded text-xs font-medium">🔥 {meal.calories} cal</span>
+                              {meal.protein_g != null && <span className="px-1.5 py-0 bg-blue-50 text-blue-700 rounded text-xs">{meal.protein_g}g P</span>}
+                              {meal.carbs_g != null && <span className="px-1.5 py-0 bg-green-50 text-green-700 rounded text-xs">{meal.carbs_g}g C</span>}
+                              {meal.fat_g != null && <span className="px-1.5 py-0 bg-orange-50 text-orange-700 rounded text-xs">{meal.fat_g}g F</span>}
+                            </div>
+                          )}
+                          {allergens.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {allergens.slice(0, 3).map((a) => (
+                                <span key={a} className="px-1.5 py-0 bg-red-50 text-red-600 rounded text-xs">{a}</span>
+                              ))}
+                              {allergens.length > 3 && <span className="text-xs text-gray-400">+{allergens.length - 3}</span>}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      {(meal as any).category ? (
-                        <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded-md text-xs">{(meal as any).category}</span>
+                      {meal.category ? (
+                        <span className="px-2 py-0.5 bg-orange-50 text-orange-700 rounded-md text-xs">{meal.category}</span>
                       ) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{meal.components.length}</td>
                     <td className="px-4 py-3">
-                      {cost > 0 ? <span className="font-medium text-gray-900">${cost.toFixed(2)}</span> : <span className="text-gray-400">—</span>}
+                      {cost > 0 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-800 rounded font-bold text-sm">
+                          💰 ${cost.toFixed(2)}
+                        </span>
+                      ) : <span className="text-gray-400">—</span>}
                     </td>
                     <td className="px-4 py-3">
                       {sell > 0 ? <span className="font-semibold text-green-700">${sell.toFixed(2)}</span> : <span className="text-gray-400">—</span>}

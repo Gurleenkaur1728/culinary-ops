@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CostEngineService } from '../../services/cost-engine.service';
-import { CreateSubRecipeDto, UpdateSubRecipeDto } from './dto/sub-recipe.dto';
+import {
+  CreateSubRecipeDto,
+  UpdateSubRecipeDto,
+  AddSubRecipeComponentDto,
+  UpdateSubRecipeComponentDto,
+} from './dto/sub-recipe.dto';
 
 @Injectable()
 export class SubRecipesService {
@@ -207,5 +212,83 @@ export class SubRecipesService {
       orderBy: { production_day: 'asc' },
     });
     return result.map((r) => r.production_day).filter(Boolean);
+  }
+
+  // ── Individual component CRUD (mirrors meals component CRUD) ───────────────
+
+  async addComponent(subRecipeId: string, dto: AddSubRecipeComponentDto) {
+    await this.findOne(subRecipeId);
+
+    if (!dto.ingredient_id && !dto.child_sub_recipe_id) {
+      throw new BadRequestException('Must provide ingredient_id or child_sub_recipe_id');
+    }
+    if (dto.ingredient_id && dto.child_sub_recipe_id) {
+      throw new BadRequestException('Cannot provide both ingredient_id and child_sub_recipe_id');
+    }
+    if (dto.child_sub_recipe_id === subRecipeId) {
+      throw new BadRequestException('A sub-recipe cannot reference itself as a component');
+    }
+
+    const component = await this.prisma.subRecipeComponent.create({
+      data: {
+        sub_recipe_id: subRecipeId,
+        ingredient_id: dto.ingredient_id ?? null,
+        child_sub_recipe_id: dto.child_sub_recipe_id ?? null,
+        quantity: dto.quantity,
+        unit: dto.unit,
+      },
+      include: {
+        ingredient: {
+          select: { id: true, internal_name: true, sku: true, cost_per_unit: true, unit: true },
+        },
+        child_sub_recipe: {
+          select: { id: true, name: true, sub_recipe_code: true, computed_cost: true },
+        },
+      },
+    });
+
+    // Recalculate cost
+    const cost = await this.costEngine.calculateSubRecipeCost(subRecipeId);
+    await this.prisma.subRecipe.update({ where: { id: subRecipeId }, data: { computed_cost: cost } });
+
+    return component;
+  }
+
+  async updateComponent(
+    subRecipeId: string,
+    componentId: string,
+    dto: UpdateSubRecipeComponentDto,
+  ) {
+    const component = await this.prisma.subRecipeComponent.findFirst({
+      where: { id: componentId, sub_recipe_id: subRecipeId },
+    });
+    if (!component) throw new NotFoundException('Component not found on this sub-recipe');
+
+    await this.prisma.subRecipeComponent.update({
+      where: { id: componentId },
+      data: {
+        ...(dto.quantity !== undefined ? { quantity: dto.quantity } : {}),
+        ...(dto.unit !== undefined ? { unit: dto.unit } : {}),
+      },
+    });
+
+    const cost = await this.costEngine.calculateSubRecipeCost(subRecipeId);
+    await this.prisma.subRecipe.update({ where: { id: subRecipeId }, data: { computed_cost: cost } });
+
+    return this.findOne(subRecipeId);
+  }
+
+  async removeComponent(subRecipeId: string, componentId: string) {
+    const component = await this.prisma.subRecipeComponent.findFirst({
+      where: { id: componentId, sub_recipe_id: subRecipeId },
+    });
+    if (!component) throw new NotFoundException('Component not found on this sub-recipe');
+
+    await this.prisma.subRecipeComponent.delete({ where: { id: componentId } });
+
+    const cost = await this.costEngine.calculateSubRecipeCost(subRecipeId);
+    await this.prisma.subRecipe.update({ where: { id: subRecipeId }, data: { computed_cost: cost } });
+
+    return { success: true };
   }
 }

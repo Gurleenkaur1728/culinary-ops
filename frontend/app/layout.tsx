@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Culinary Ops',
-  description: 'Internal culinary operations system',
+  title: 'BetterDay Kitchen',
+  description: 'BetterDay production operations system',
 };
 
 export default function RootLayout({
